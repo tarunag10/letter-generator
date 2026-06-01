@@ -254,6 +254,37 @@ export function buildResponsePlan(input = {}) {
   };
 }
 
+export function buildLetterHandoffPack(input = {}) {
+  const letter = generateReasonableAdjustmentLetter(input);
+  const responsePlan = buildResponsePlan(input);
+  const checklist = buildActionChecklist(input);
+
+  return {
+    title: 'Reasonable adjustment handoff pack',
+    markdown: [
+      '# Reasonable adjustment handoff pack',
+      '',
+      'Generated locally in the browser. Nothing was sent to a server.',
+      '',
+      '## Letter',
+      '```text',
+      letter,
+      '```',
+      '',
+      '## Response plan',
+      `Response window: ${responsePlan.windowLabel}`,
+      `Target follow-up date: ${responsePlan.targetDateDisplay}`,
+      '',
+      ...responsePlan.steps.map((step) => `- [ ] ${step}`),
+      '',
+      '## Action checklist',
+      ...checklist.map((item) => `- [ ] ${item}`),
+      '',
+      `Safety note: ${responsePlan.safetyNote}`
+    ].join('\n')
+  };
+}
+
 export function buildExportMetadata(input = {}) {
   const organisationType = organisationTypes[input.organisationType] ? input.organisationType : 'university';
   const issueType = issueGuidance[clean(input.issueType, '').toLowerCase()]

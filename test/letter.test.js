@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   buildActionChecklist,
   buildExportMetadata,
+  buildLetterHandoffPack,
   buildMailtoLink,
   buildResponsePlan,
   formatDateForDisplay,
@@ -132,4 +133,23 @@ test('uses date-safe helpers for invalid or weekend dates', () => {
     buildResponsePlan({ organisationType: 'airline', issueType: 'travel', sentDate: '2026-06-06' }).targetDate,
     '2026-06-12'
   );
+});
+
+test('builds a copyable handoff pack with letter, plan, and checklist', () => {
+  const pack = buildLetterHandoffPack({
+    recipient: 'Access Team',
+    organisationType: 'bank',
+    issueType: 'banking',
+    issue: 'statement format',
+    sentDate: '2026-06-01',
+    name: 'T. Customer'
+  });
+
+  assert.equal(pack.title, 'Reasonable adjustment handoff pack');
+  assert.match(pack.markdown, /^# Reasonable adjustment handoff pack/m);
+  assert.match(pack.markdown, /## Letter/);
+  assert.match(pack.markdown, /Dear Access Team/);
+  assert.match(pack.markdown, /Target follow-up date: 15 June 2026/);
+  assert.match(pack.markdown, /Remove full card numbers/);
+  assert.match(pack.markdown, /Nothing was sent to a server/);
 });

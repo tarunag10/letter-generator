@@ -1,6 +1,7 @@
 import {
   buildActionChecklist,
   buildExportMetadata,
+  buildLetterHandoffPack,
   buildMailtoLink,
   buildResponsePlan,
   generateReasonableAdjustmentLetter,
@@ -22,6 +23,7 @@ const downloadButton = document.querySelector('#downloadLetter');
 const printButton = document.querySelector('#printLetter');
 const emailLink = document.querySelector('#emailLetter');
 const resetButton = document.querySelector('#resetDraft');
+const handoffButton = document.querySelector('#copyHandoffPack');
 const draftKey = 'open-access-uk:letter-generator:draft';
 
 function populateSelect(select, entries, labelFor) {
@@ -119,6 +121,15 @@ async function copyLetter() {
   }
 }
 
+async function copyHandoffPack() {
+  try {
+    await navigator.clipboard?.writeText(buildLetterHandoffPack(values()).markdown);
+    status.textContent = 'Handoff pack copied locally. Nothing was sent to a server.';
+  } catch {
+    status.textContent = 'Copy failed. You can still copy the letter and checklist manually.';
+  }
+}
+
 function downloadLetter() {
   const metadata = buildExportMetadata(values());
   const blob = new Blob([preview.textContent], { type: metadata.mimeType });
@@ -154,5 +165,6 @@ copyButton.addEventListener('click', copyLetter);
 downloadButton.addEventListener('click', downloadLetter);
 printButton.addEventListener('click', printLetter);
 resetButton.addEventListener('click', resetDraft);
+handoffButton.addEventListener('click', copyHandoffPack);
 
 update();
