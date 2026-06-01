@@ -91,6 +91,20 @@ const issueChecklist = {
   healthcare: ['Ask whether the adjustment is temporary or should be added permanently to your record.']
 };
 
+const draftFields = [
+  'recipient',
+  'organisationType',
+  'issueType',
+  'issue',
+  'needs',
+  'impact',
+  'deadline',
+  'evidence',
+  'name',
+  'contact',
+  'email'
+];
+
 function clean(value, fallback) {
   const text = typeof value === 'string' ? value.trim() : '';
   return text || fallback;
@@ -138,6 +152,41 @@ export function buildExportMetadata(input = {}) {
     mimeType: 'text/plain;charset=utf-8',
     title: `Reasonable adjustment request for ${profile.label}`
   };
+}
+
+export function serializeDraftState(input = {}) {
+  const draft = {};
+  for (const field of draftFields) {
+    if (typeof input[field] === 'string' && input[field].trim()) {
+      draft[field] = input[field].trim();
+    }
+  }
+  return JSON.stringify(draft);
+}
+
+export function parseDraftState(serialized) {
+  try {
+    const parsed = JSON.parse(serialized);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    const draft = {};
+    for (const field of draftFields) {
+      if (typeof parsed[field] === 'string' && parsed[field].trim()) {
+        draft[field] = parsed[field].trim();
+      }
+    }
+    return draft;
+  } catch {
+    return {};
+  }
+}
+
+export function buildMailtoLink({ to = '', subject = 'Reasonable adjustment request', body = '' } = {}) {
+  const address = encodeURIComponent(clean(to, ''));
+  const params = [
+    ['subject', clean(subject, 'Reasonable adjustment request')],
+    ['body', clean(body, '')]
+  ].map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join('&');
+  return `mailto:${address}?${params}`;
 }
 
 export function generateReasonableAdjustmentLetter(input = {}) {

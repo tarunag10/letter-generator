@@ -13,6 +13,7 @@ Open `index.html` in a browser. This repository is intentionally no-backend and 
 - A stronger generated letter that asks for written reasons, alternatives, responsible contacts, staff briefing, deadlines, and complaint or appeal routes.
 - A browser-side action checklist that changes with the selected organisation and issue, including privacy reminders for sensitive banking or healthcare details.
 - Local copy, `.txt` download, and browser print actions. Filename metadata is generated in the browser from the letter context; no backend or storage is used.
+- Slice 2 adds browser-local draft autosave, clear/reset draft, and an email-draft `mailto:` link. Draft data stays in `localStorage` on the user's device and can be cleared from the UI.
 
 ## Source checks
 

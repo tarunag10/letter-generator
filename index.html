@@ -59,10 +59,15 @@
         <label for="contact">Preferred contact details</label>
         <input id="contact" name="contact" value="email at a.student@example.com">
 
+        <label for="email">Recipient email for draft</label>
+        <input id="email" name="email" type="email" value="access@example.org">
+
         <div class="actions" aria-label="Letter actions">
           <button id="copyLetter" type="button">Copy</button>
           <button id="downloadLetter" type="button" class="secondary">Download .txt</button>
           <button id="printLetter" type="button" class="secondary">Print</button>
+          <a id="emailLetter" class="button secondary" href="mailto:">Email draft</a>
+          <button id="resetDraft" type="button" class="secondary">Clear saved draft</button>
         </div>
         <p id="status" role="status" aria-live="polite"></p>
       </form>

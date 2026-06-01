@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 import {
   buildActionChecklist,
   buildExportMetadata,
+  buildMailtoLink,
+  parseDraftState,
+  serializeDraftState,
   generateReasonableAdjustmentLetter,
   organisationTypes
 } from '../src/letter.js';
@@ -67,4 +70,41 @@ test('builds an action checklist from organisation type and issue', () => {
   assert.ok(checklist.includes('Ask the bank to mark the agreed adjustment on your account and confirm how deadlines or complaints are affected.'));
   assert.ok(checklist.includes('Keep copies of statements, complaint references, transaction dates, and the bank response.'));
   assert.ok(checklist.length >= 5);
+});
+
+test('serializes and restores local draft state safely', () => {
+  const draft = serializeDraftState({
+    recipient: 'Access Team',
+    organisationType: 'nhs',
+    issueType: 'healthcare',
+    issue: 'appointment letters',
+    ignored: '<script>nope</script>'
+  });
+
+  assert.equal(typeof draft, 'string');
+  assert.deepEqual(parseDraftState(draft), {
+    recipient: 'Access Team',
+    organisationType: 'nhs',
+    issueType: 'healthcare',
+    issue: 'appointment letters'
+  });
+  assert.deepEqual(parseDraftState('not json'), {});
+});
+
+test('builds a mailto link from generated letter content', () => {
+  const letter = generateReasonableAdjustmentLetter({
+    recipient: 'Support Team',
+    organisationType: 'council',
+    issue: 'accessible appointment',
+    name: 'T. Resident'
+  });
+  const href = buildMailtoLink({
+    to: 'support@example.gov.uk',
+    subject: 'Reasonable adjustment request',
+    body: letter
+  });
+
+  assert.match(href, /^mailto:support%40example\.gov\.uk\?/);
+  assert.match(href, /subject=Reasonable%20adjustment%20request/);
+  assert.match(href, /body=.*Equality%20Act%202010/);
 });

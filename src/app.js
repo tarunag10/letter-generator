@@ -1,10 +1,13 @@
 import {
   buildActionChecklist,
   buildExportMetadata,
+  buildMailtoLink,
   generateReasonableAdjustmentLetter,
   getOrganisationProfile,
   issueGuidance,
-  organisationTypes
+  organisationTypes,
+  parseDraftState,
+  serializeDraftState
 } from './letter.js';
 
 const form = document.querySelector('form');
@@ -16,6 +19,9 @@ const guidance = document.querySelector('#selected-guidance');
 const copyButton = document.querySelector('#copyLetter');
 const downloadButton = document.querySelector('#downloadLetter');
 const printButton = document.querySelector('#printLetter');
+const emailLink = document.querySelector('#emailLetter');
+const resetButton = document.querySelector('#resetDraft');
+const draftKey = 'open-access-uk:letter-generator:draft';
 
 function populateSelect(select, entries, labelFor) {
   select.replaceChildren(
@@ -59,7 +65,34 @@ function updateGuidance(data) {
 function update() {
   const data = values();
   preview.textContent = generateReasonableAdjustmentLetter(data);
+  emailLink.href = buildMailtoLink({
+    to: data.email,
+    subject: `Reasonable adjustment request: ${data.issue || 'request'}`,
+    body: preview.textContent
+  });
   updateGuidance(data);
+}
+
+function saveDraft() {
+  localStorage.setItem(draftKey, serializeDraftState(values()));
+  status.textContent = 'Draft autosaved locally in this browser.';
+}
+
+function restoreDraft() {
+  const draft = parseDraftState(localStorage.getItem(draftKey));
+  for (const [name, value] of Object.entries(draft)) {
+    const field = form.elements.namedItem(name);
+    if (field) field.value = value;
+  }
+}
+
+function resetDraft() {
+  localStorage.removeItem(draftKey);
+  form.reset();
+  organisationSelect.value = 'university';
+  issueSelect.value = 'exams';
+  update();
+  status.textContent = 'Saved draft cleared from this browser.';
 }
 
 async function copyLetter() {
@@ -92,8 +125,12 @@ populateSelect(organisationSelect, Object.entries(organisationTypes), (profile) 
 populateSelect(issueSelect, Object.entries(issueGuidance), (_, value) => value[0].toUpperCase() + value.slice(1));
 organisationSelect.value = 'university';
 issueSelect.value = 'exams';
+restoreDraft();
 
-form.addEventListener('input', update);
+form.addEventListener('input', () => {
+  update();
+  saveDraft();
+});
 form.addEventListener('submit', (event) => {
   event.preventDefault();
   copyLetter();
@@ -101,5 +138,6 @@ form.addEventListener('submit', (event) => {
 copyButton.addEventListener('click', copyLetter);
 downloadButton.addEventListener('click', downloadLetter);
 printButton.addEventListener('click', printLetter);
+resetButton.addEventListener('click', resetDraft);
 
 update();
