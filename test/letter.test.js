@@ -6,6 +6,7 @@ import {
   buildLetterHandoffPack,
   buildMailtoLink,
   buildResponsePlan,
+  currentGuidance,
   formatDateForDisplay,
   parseDraftState,
   serializeDraftState,
@@ -151,5 +152,13 @@ test('builds a copyable handoff pack with letter, plan, and checklist', () => {
   assert.match(pack.markdown, /Dear Access Team/);
   assert.match(pack.markdown, /Target follow-up date: 15 June 2026/);
   assert.match(pack.markdown, /Remove full card numbers/);
+  assert.match(pack.markdown, /Current source notes/);
   assert.match(pack.markdown, /Nothing was sent to a server/);
+});
+
+test('exposes current source-backed public guidance', () => {
+  assert.equal(currentGuidance.length, 3);
+  assert.ok(currentGuidance.some((item) => item.title.includes('Equality Act')));
+  assert.ok(currentGuidance.some((item) => item.detail.includes('one month')));
+  assert.ok(currentGuidance.every((item) => item.url.startsWith('https://')));
 });

@@ -4,6 +4,7 @@ import {
   buildLetterHandoffPack,
   buildMailtoLink,
   buildResponsePlan,
+  currentGuidance,
   generateReasonableAdjustmentLetter,
   getOrganisationProfile,
   issueGuidance,
@@ -24,6 +25,7 @@ const printButton = document.querySelector('#printLetter');
 const emailLink = document.querySelector('#emailLetter');
 const resetButton = document.querySelector('#resetDraft');
 const handoffButton = document.querySelector('#copyHandoffPack');
+const currentGuidanceMount = document.querySelector('#current-guidance');
 const draftKey = 'open-access-uk:letter-generator:draft';
 
 function populateSelect(select, entries, labelFor) {
@@ -88,6 +90,26 @@ function update() {
     body: preview.textContent
   });
   updateGuidance(data);
+}
+
+function renderCurrentGuidance() {
+  if (!currentGuidanceMount) return;
+  currentGuidanceMount.replaceChildren(
+    ...currentGuidance.map((item) => {
+      const card = document.createElement('article');
+      card.className = 'card';
+      const heading = document.createElement('h3');
+      heading.textContent = item.title;
+      const detail = document.createElement('p');
+      detail.textContent = item.detail;
+      const link = document.createElement('a');
+      link.href = item.url;
+      link.rel = 'noreferrer';
+      link.textContent = item.source;
+      card.append(heading, detail, link);
+      return card;
+    })
+  );
 }
 
 function saveDraft() {
@@ -167,4 +189,5 @@ printButton.addEventListener('click', printLetter);
 resetButton.addEventListener('click', resetDraft);
 handoffButton.addEventListener('click', copyHandoffPack);
 
+renderCurrentGuidance();
 update();

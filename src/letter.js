@@ -59,6 +59,27 @@ export const issueGuidance = {
   healthcare: 'Include appointment dates, clinic names, communication needs, and whether the adjustment should be added permanently to your record.'
 };
 
+export const currentGuidance = [
+  {
+    title: 'Equality Act reasonable adjustments',
+    detail: 'GOV.UK guidance updated in May 2026 confirms the Equality Act 2010 protects people from discrimination, and the 2026 draft services code says providers should anticipate common access barriers rather than waiting for every person to ask from scratch.',
+    source: 'GOV.UK Equality Act guidance',
+    url: 'https://www.gov.uk/guidance/equality-act-2010-guidance'
+  },
+  {
+    title: 'Accessible communication formats',
+    detail: 'Government communication guidance highlights clear language and alternative formats such as Easy Read, large print, audio, Braille and other accessible formats where they are needed.',
+    source: 'GOV.UK accessible communication formats',
+    url: 'https://www.gov.uk/government/publications/inclusive-communication/accessible-communication-formats/'
+  },
+  {
+    title: 'Subject access timing',
+    detail: 'The ICO says subject access requests can be verbal or written and should be answered without undue delay and within one month unless a lawful extension applies.',
+    source: 'ICO subject access guidance',
+    url: 'https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/subject-access-requests/a-guide-to-subject-access/'
+  }
+];
+
 const fallbackOrganisation = organisationTypes.university;
 const commonChecklist = [
   'Save a copy of the letter and the date sent.',
@@ -279,6 +300,9 @@ export function buildLetterHandoffPack(input = {}) {
       '',
       '## Action checklist',
       ...checklist.map((item) => `- [ ] ${item}`),
+      '',
+      '## Current source notes',
+      ...currentGuidance.map((item) => `- ${item.title}: ${item.detail} Source: ${item.url}`),
       '',
       `Safety note: ${responsePlan.safetyNote}`
     ].join('\n')
