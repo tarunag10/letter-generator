@@ -2,6 +2,7 @@ import {
   buildActionChecklist,
   buildExportMetadata,
   buildMailtoLink,
+  buildResponsePlan,
   generateReasonableAdjustmentLetter,
   getOrganisationProfile,
   issueGuidance,
@@ -40,6 +41,7 @@ function values() {
 
 function updateGuidance(data) {
   const profile = getOrganisationProfile(data.organisationType);
+  const responsePlan = buildResponsePlan(data);
   guidance.innerHTML = '';
 
   const heading = document.createElement('h2');
@@ -58,8 +60,21 @@ function updateGuidance(data) {
     listItem.textContent = item;
     checklist.append(listItem);
   }
+  const planHeading = document.createElement('h3');
+  planHeading.textContent = 'Response plan';
+  const window = document.createElement('p');
+  window.textContent = `Recommended response window: ${responsePlan.windowLabel}. Target follow-up date: ${responsePlan.targetDateDisplay}.`;
+  const planList = document.createElement('ol');
+  for (const item of responsePlan.steps) {
+    const listItem = document.createElement('li');
+    listItem.textContent = item;
+    planList.append(listItem);
+  }
+  const safety = document.createElement('p');
+  safety.className = 'summary';
+  safety.textContent = responsePlan.safetyNote;
 
-  guidance.append(heading, legal, examples, issue, checklistHeading, checklist);
+  guidance.append(heading, legal, examples, issue, checklistHeading, checklist, planHeading, window, planList, safety);
 }
 
 function update() {

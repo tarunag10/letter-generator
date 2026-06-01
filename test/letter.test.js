@@ -4,6 +4,8 @@ import {
   buildActionChecklist,
   buildExportMetadata,
   buildMailtoLink,
+  buildResponsePlan,
+  formatDateForDisplay,
   parseDraftState,
   serializeDraftState,
   generateReasonableAdjustmentLetter,
@@ -107,4 +109,27 @@ test('builds a mailto link from generated letter content', () => {
   assert.match(href, /^mailto:support%40example\.gov\.uk\?/);
   assert.match(href, /subject=Reasonable%20adjustment%20request/);
   assert.match(href, /body=.*Equality%20Act%202010/);
+});
+
+test('builds a response plan from organisation, issue, and sent date', () => {
+  const plan = buildResponsePlan({
+    organisationType: 'exam-provider',
+    issueType: 'exams',
+    sentDate: '2026-06-01'
+  });
+
+  assert.equal(plan.windowLabel, '7 working days');
+  assert.equal(plan.targetDate, '2026-06-10');
+  assert.equal(plan.targetDateDisplay, '10 June 2026');
+  assert.ok(plan.steps.some((step) => /evidence deadline/i.test(step)));
+  assert.ok(plan.steps.some((step) => /written follow-up/i.test(step)));
+  assert.match(plan.safetyNote, /informational planning aid/i);
+});
+
+test('uses date-safe helpers for invalid or weekend dates', () => {
+  assert.equal(formatDateForDisplay('not-a-date'), 'No date set');
+  assert.equal(
+    buildResponsePlan({ organisationType: 'airline', issueType: 'travel', sentDate: '2026-06-06' }).targetDate,
+    '2026-06-12'
+  );
 });

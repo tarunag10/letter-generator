@@ -91,6 +91,51 @@ const issueChecklist = {
   healthcare: ['Ask whether the adjustment is temporary or should be added permanently to your record.']
 };
 
+const responsePlanRules = {
+  employer: {
+    workingDays: 10,
+    steps: ['Follow up with the named manager, HR contact, or recruiter if there is no written response by the target date.']
+  },
+  university: {
+    workingDays: 10,
+    steps: ['Follow up with disability support or student services and ask for any interim support while the decision is pending.']
+  },
+  nhs: {
+    workingDays: 10,
+    steps: ['Follow up through the clinic, practice manager, PALS, or patient-experience route if the adjustment is not recorded.']
+  },
+  council: {
+    workingDays: 10,
+    steps: ['Follow up through the service owner or complaints route and ask whether an interim arrangement can be put in place.']
+  },
+  railway: {
+    workingDays: 5,
+    steps: ['Follow up with the operator or assistance team before travel, keeping ticket and booking references together.']
+  },
+  bank: {
+    workingDays: 10,
+    steps: ['Follow up with the complaints or accessibility team and ask how any account marker affects deadlines.']
+  },
+  airline: {
+    workingDays: 5,
+    steps: ['Follow up with the airline or airport assistance team before travel and ask for written confirmation of handover points.']
+  },
+  'exam-provider': {
+    workingDays: 7,
+    steps: ['Follow up before the evidence deadline and ask for the decision date, test-centre instructions, and review route.']
+  }
+};
+
+const issueResponseSteps = {
+  exams: ['Put exam dates, evidence deadline, and appeal or review dates in your calendar.'],
+  communication: ['Check the organisation has recorded the communication format you can reliably use.'],
+  travel: ['Check assistance, disruption arrangements, and escalation contacts before the journey date.'],
+  employment: ['Keep recruitment, rota, policy, manager, and occupational-health notes together.'],
+  premises: ['Ask for an interim access arrangement if the physical barrier cannot be removed quickly.'],
+  banking: ['Avoid sending full card numbers, PINs, passwords, or security answers in follow-up messages.'],
+  healthcare: ['Ask whether the adjustment is temporary or should stay on your patient record.']
+};
+
 const draftFields = [
   'recipient',
   'organisationType',
@@ -99,6 +144,7 @@ const draftFields = [
   'needs',
   'impact',
   'deadline',
+  'sentDate',
   'evidence',
   'name',
   'contact',
@@ -137,6 +183,75 @@ export function buildActionChecklist(input = {}) {
     ...(organisationChecklist[organisationType] || []),
     ...(issueChecklist[issueType] || [])
   ];
+}
+
+export function parseLocalDate(value) {
+  if (typeof value !== 'string') return null;
+  const match = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  const [, year, month, day] = match.map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) {
+    return null;
+  }
+  return date;
+}
+
+export function toLocalDateString(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+export function formatDateForDisplay(value) {
+  const date = value instanceof Date ? value : parseLocalDate(value);
+  if (!date) return 'No date set';
+  return new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC'
+  }).format(date);
+}
+
+export function addWorkingDays(value, workingDays = 10) {
+  const date = value instanceof Date ? new Date(value.getTime()) : parseLocalDate(value);
+  if (!date) return null;
+  const days = Math.max(0, Number.isFinite(workingDays) ? Math.floor(workingDays) : 0);
+  let added = 0;
+  while (added < days) {
+    date.setUTCDate(date.getUTCDate() + 1);
+    const day = date.getUTCDay();
+    if (day !== 0 && day !== 6) added += 1;
+  }
+  return date;
+}
+
+export function buildResponsePlan(input = {}) {
+  const organisationType = organisationTypes[input.organisationType] ? input.organisationType : 'university';
+  const issueType = clean(input.issueType, '').toLowerCase();
+  const rule = responsePlanRules[organisationType] || responsePlanRules.university;
+  const sentDate = parseLocalDate(input.sentDate);
+  const target = sentDate ? addWorkingDays(sentDate, rule.workingDays) : null;
+  const steps = [
+    `Send or save the request, then allow ${rule.workingDays} working days for an initial written response.`,
+    ...(rule.steps || []),
+    ...(issueResponseSteps[issueType] || []),
+    'If there is no response by the target date, send a short written follow-up with the original request attached or quoted.',
+    'Keep the response, dates, evidence, names, and reference numbers with your copy of the letter.'
+  ];
+
+  return {
+    windowLabel: `${rule.workingDays} working days`,
+    sentDate: sentDate ? toLocalDateString(sentDate) : '',
+    sentDateDisplay: sentDate ? formatDateForDisplay(sentDate) : 'Set a sent date to calculate a target date',
+    targetDate: target ? toLocalDateString(target) : '',
+    targetDateDisplay: target ? formatDateForDisplay(target) : 'Set a sent date to calculate a target date',
+    steps,
+    safetyNote: 'This response plan is an informational planning aid, not legal advice. Check any formal deadline, appeal route, complaint policy, ticket term, exam rule, or urgent time limit before relying on it.'
+  };
 }
 
 export function buildExportMetadata(input = {}) {
