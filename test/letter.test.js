@@ -1,0 +1,70 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  buildActionChecklist,
+  buildExportMetadata,
+  generateReasonableAdjustmentLetter,
+  organisationTypes
+} from '../src/letter.js';
+
+test('generates a reasonable adjustment letter with legal framing and requested support', () => {
+  const text = generateReasonableAdjustmentLetter({
+    recipient: 'Admissions Team',
+    organisationType: 'university',
+    issue: 'exam arrangements',
+    name: 'A. Student',
+    needs: 'extra time, rest breaks, and written instructions',
+    contact: 'a.student@example.com'
+  });
+  assert.match(text, /Dear Admissions Team/);
+  assert.match(text, /Equality Act 2010/);
+  assert.match(text, /extra time, rest breaks, and written instructions/);
+  assert.match(text, /A\. Student/);
+});
+
+test('covers the expected organisation types', () => {
+  for (const type of ['employer', 'university', 'nhs', 'council', 'railway', 'bank', 'airline', 'exam-provider']) {
+    assert.ok(organisationTypes[type], `missing ${type}`);
+  }
+});
+
+test('adds issue-specific prompts and refusal questions', () => {
+  const text = generateReasonableAdjustmentLetter({
+    recipient: 'Customer Care',
+    organisationType: 'airline',
+    issueType: 'travel',
+    issue: 'assistance for flight AB123',
+    needs: 'assistance through security and careful handling of my wheelchair',
+    impact: 'I cannot safely board without booked assistance.',
+    deadline: '5 working days',
+    name: 'T. Passenger',
+    contact: 'email'
+  });
+
+  assert.match(text, /airport and airline assistance/);
+  assert.match(text, /booking references/);
+  assert.match(text, /If you do not agree/);
+  assert.match(text, /5 working days/);
+});
+
+test('builds export metadata with a safe filename', () => {
+  const metadata = buildExportMetadata({
+    organisationType: 'exam-provider',
+    issueType: 'exams',
+    issue: 'GCSE English / access arrangements',
+    name: 'A. Candidate'
+  });
+
+  assert.equal(metadata.mimeType, 'text/plain;charset=utf-8');
+  assert.equal(metadata.filename, 'reasonable-adjustment-exam-provider-exams-gcse-english-access-arrangements.txt');
+  assert.match(metadata.title, /Exam provider/);
+});
+
+test('builds an action checklist from organisation type and issue', () => {
+  const checklist = buildActionChecklist({ organisationType: 'bank', issueType: 'banking' });
+
+  assert.ok(checklist.includes('Remove full card numbers, passwords, PINs, security answers, and unnecessary medical detail before sending.'));
+  assert.ok(checklist.includes('Ask the bank to mark the agreed adjustment on your account and confirm how deadlines or complaints are affected.'));
+  assert.ok(checklist.includes('Keep copies of statements, complaint references, transaction dates, and the bank response.'));
+  assert.ok(checklist.length >= 5);
+});

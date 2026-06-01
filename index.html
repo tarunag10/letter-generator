@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reasonable Adjustment Letter Generator</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="index.html">Open Access UK</a>
+    <nav aria-label="Primary">
+      <a href="#tool">Tool</a>
+      <a href="#guidance">Guidance</a>
+      <a href="#contribute">Contribute</a>
+    </nav>
+  </header>
+  <main>
+    <section class="hero">
+      <div>
+        <h1>Reasonable Adjustment Letter Generator</h1>
+        <p>Create a strong UK reasonable-adjustment request for work, university, exams, NHS care, councils, rail travel, banks, airlines, and other services. Everything runs in your browser.</p>
+      </div>
+      <div class="card warning">
+        <h2>Plain-English safety note</h2>
+        <p>This is a drafting aid, not legal advice. Check urgent deadlines, appeal routes, ticket terms, workplace policies, exam-board rules, and whether you need specialist advice before sending.</p>
+      </div>
+    </section>
+
+    <section id="tool" class="grid" aria-label="Letter generator">
+      <form class="panel" aria-describedby="status">
+        <label for="recipient">Recipient</label>
+        <input id="recipient" name="recipient" value="Admissions Team">
+
+        <label for="organisationType">Organisation type</label>
+        <select id="organisationType" name="organisationType"></select>
+
+        <label for="issueType">Issue type</label>
+        <select id="issueType" name="issueType"></select>
+
+        <label for="issue">Specific issue</label>
+        <input id="issue" name="issue" value="exam arrangements for my June assessment">
+
+        <label for="impact">Barrier or disadvantage</label>
+        <textarea id="impact" name="impact">Timed exams without rest breaks make it significantly harder for me to demonstrate my knowledge on an equal basis.</textarea>
+
+        <label for="needs">Adjustments requested</label>
+        <textarea id="needs" name="needs">25% extra time, rest breaks, written instructions, and a quiet room close to accessible toilets</textarea>
+
+        <label for="evidence">Evidence or context</label>
+        <textarea id="evidence" name="evidence">I can provide existing medical or disability-support evidence if it is necessary and proportionate.</textarea>
+
+        <label for="deadline">Response deadline</label>
+        <input id="deadline" name="deadline" value="10 working days">
+
+        <label for="name">Your name</label>
+        <input id="name" name="name" value="A. Student">
+
+        <label for="contact">Preferred contact details</label>
+        <input id="contact" name="contact" value="email at a.student@example.com">
+
+        <div class="actions" aria-label="Letter actions">
+          <button id="copyLetter" type="button">Copy</button>
+          <button id="downloadLetter" type="button" class="secondary">Download .txt</button>
+          <button id="printLetter" type="button" class="secondary">Print</button>
+        </div>
+        <p id="status" role="status" aria-live="polite"></p>
+      </form>
+
+      <div>
+        <article id="preview" class="preview" aria-label="Generated letter"></article>
+        <aside id="selected-guidance" class="card guidance-card" aria-live="polite"></aside>
+      </div>
+    </section>
+
+    <section id="guidance" class="footer-band">
+      <h2>What to include</h2>
+      <div class="cards">
+        <article class="card"><h3>Be specific</h3><p>Name the barrier, the adjustment requested, and the date by which a decision is needed.</p></article>
+        <article class="card"><h3>Ask for reasons</h3><p>If an organisation refuses, ask for written reasons and any alternative adjustment it proposes.</p></article>
+        <article class="card"><h3>Keep evidence</h3><p>Save a copy of the letter, replies, forms, booking references, screenshots, and dates of phone calls.</p></article>
+      </div>
+    </section>
+
+    <section id="contribute" class="footer-band">
+      <h2>Contribute</h2>
+      <p>Useful improvements include better issue prompts, official-source links, accessibility fixes, and tested examples for new organisation types. Keep the project static and avoid collecting personal data.</p>
+    </section>
+  </main>
+  <script type="module" src="src/app.js"></script>
+</body>
+</html>
