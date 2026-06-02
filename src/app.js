@@ -1,6 +1,7 @@
 import {
   buildActionChecklist,
   buildExportMetadata,
+  buildLocalActionPack,
   buildLetterHandoffPack,
   buildMailtoLink,
   buildResponsePlan,
@@ -24,6 +25,7 @@ const downloadButton = document.querySelector('#downloadLetter');
 const printButton = document.querySelector('#printLetter');
 const emailLink = document.querySelector('#emailLetter');
 const resetButton = document.querySelector('#resetDraft');
+const localActionButton = document.querySelector('#copyLocalActionPack');
 const handoffButton = document.querySelector('#copyHandoffPack');
 const currentGuidanceMount = document.querySelector('#current-guidance');
 const draftKey = 'open-access-uk:letter-generator:draft';
@@ -152,6 +154,15 @@ async function copyHandoffPack() {
   }
 }
 
+async function copyLocalActionPack() {
+  try {
+    await navigator.clipboard?.writeText(buildLocalActionPack(values()).markdown);
+    status.textContent = 'Local action pack copied locally. Nothing was sent to a server.';
+  } catch {
+    status.textContent = 'Copy failed. You can still copy the response plan and checklist manually.';
+  }
+}
+
 function downloadLetter() {
   const metadata = buildExportMetadata(values());
   const blob = new Blob([preview.textContent], { type: metadata.mimeType });
@@ -187,6 +198,7 @@ copyButton.addEventListener('click', copyLetter);
 downloadButton.addEventListener('click', downloadLetter);
 printButton.addEventListener('click', printLetter);
 resetButton.addEventListener('click', resetDraft);
+localActionButton.addEventListener('click', copyLocalActionPack);
 handoffButton.addEventListener('click', copyHandoffPack);
 
 renderCurrentGuidance();

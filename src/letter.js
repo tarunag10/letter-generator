@@ -157,6 +157,48 @@ const issueResponseSteps = {
   healthcare: ['Ask whether the adjustment is temporary or should stay on your patient record.']
 };
 
+const localEvidenceItems = {
+  common: [
+    'A copy of the sent request, the sent date, and the address or email used.',
+    'Replies, reference numbers, screenshots, forms, booking details, and notes of phone calls.',
+    'Only necessary supporting evidence, with private details removed where they are not needed.'
+  ],
+  employer: ['Job advert, rota, policy, manager emails, occupational-health notes, or Access to Work details.'],
+  university: ['Disability support plan, exam timetable, placement details, course deadlines, and previous accepted evidence.'],
+  nhs: ['Appointment letters, clinic name, patient-access notes, PALS reference, and agreed communication needs.'],
+  council: ['Service reference, complaint stage, decision letters, officer names, photos, and dated contact notes.'],
+  railway: ['Ticket, itinerary, booking reference, assistance booking, station names, disruption evidence, and actual arrival time.'],
+  bank: ['Complaint references, transaction dates, statements, secure-message screenshots, and the bank response.'],
+  airline: ['Booking reference, assistance confirmation, boarding pass, mobility-aid evidence, photos, and named contacts.'],
+  'exam-provider': ['Exam date, evidence deadline, access-arrangement history, test-centre messages, and appeal or review dates.']
+};
+
+const localSafetyItems = {
+  common: [
+    'Check urgent deadlines, appeal windows, complaint stages, and any local policy before waiting.',
+    'Keep medical, financial, and identity details proportionate to the adjustment being requested.'
+  ],
+  bank: ['Remove full card numbers, PINs, passwords, security answers, and unnecessary medical detail before sending.'],
+  healthcare: ['Do not include full medical records unless they are necessary for the adjustment decision.'],
+  exams: ['Check evidence deadlines and ask for an interim decision if the exam or assessment date is close.'],
+  travel: ['Check the pack against the journey date and ask for written confirmation before travel.']
+};
+
+const localEscalationItems = {
+  common: [
+    'If there is no reply by the target date, send a short follow-up with the original request attached or quoted.',
+    'Ask for written reasons, the complaint route, and the named team responsible for the next decision.'
+  ],
+  employer: ['If work is affected, ask HR or the manager for the grievance, appeal, or occupational-health route.'],
+  university: ['Ask student services for the review, appeal, or complaints route if adjustments are refused or delayed.'],
+  nhs: ['Use the clinic, practice manager, PALS, or patient-experience route if the adjustment is not recorded.'],
+  council: ['Use the service complaints route and ask when the Local Government and Social Care Ombudsman route may become available.'],
+  railway: ['Escalate through the operator complaint route and keep Delay Repay or accessibility-assistance evidence together.'],
+  bank: ['Ask for the final-response route and when the Financial Ombudsman Service may be available.'],
+  airline: ['Use the airline or airport complaint route and keep the CAA or approved ADR route in view where applicable.'],
+  'exam-provider': ['Ask for the review or appeal route and the date by which the test centre will receive instructions.']
+};
+
 const draftFields = [
   'recipient',
   'organisationType',
@@ -190,6 +232,23 @@ function slug(value, fallback = 'letter') {
     .replace(/^-+|-+$/g, '')
     .replace(/-{2,}/g, '-');
   return text || fallback;
+}
+
+function titleCase(value) {
+  return clean(value, '')
+    .split(/[-\s]+/)
+    .filter(Boolean)
+    .map((part) => part[0].toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function sentenceCase(value) {
+  const text = clean(value, '');
+  return text ? text[0].toUpperCase() + text.slice(1) : '';
+}
+
+function unique(items) {
+  return [...new Set(items.filter(Boolean))];
 }
 
 export function getOrganisationProfile(type) {
@@ -272,6 +331,63 @@ export function buildResponsePlan(input = {}) {
     targetDateDisplay: target ? formatDateForDisplay(target) : 'Set a sent date to calculate a target date',
     steps,
     safetyNote: 'This response plan is an informational planning aid, not legal advice. Check any formal deadline, appeal route, complaint policy, ticket term, exam rule, or urgent time limit before relying on it.'
+  };
+}
+
+export function buildLocalActionPack(input = {}) {
+  const organisationType = organisationTypes[input.organisationType] ? input.organisationType : 'university';
+  const issueType = clean(input.issueType, '').toLowerCase();
+  const profile = getOrganisationProfile(organisationType);
+  const issueLabel = titleCase(issueType || 'request');
+  const issue = clean(input.issue, 'reasonable adjustment request');
+  const issueDisplay = sentenceCase(issue);
+  const responsePlan = buildResponsePlan(input);
+  const evidence = unique([
+    ...localEvidenceItems.common,
+    ...(localEvidenceItems[organisationType] || []),
+    ...(issueType === 'banking' ? localEvidenceItems.bank : []),
+    ...(issueType === 'travel' ? localEvidenceItems.railway : []),
+    ...(issueType === 'exams' ? localEvidenceItems['exam-provider'] : [])
+  ]);
+  const safety = unique([
+    ...localSafetyItems.common,
+    ...(localSafetyItems[organisationType] || []),
+    ...(localSafetyItems[issueType] || [])
+  ]);
+  const escalation = unique([
+    ...localEscalationItems.common,
+    ...(localEscalationItems[organisationType] || [])
+  ]);
+
+  return {
+    title: 'Local action pack',
+    contextLabel: `${profile.label} - ${issueLabel}`,
+    targetDateDisplay: responsePlan.targetDateDisplay,
+    evidence,
+    safety,
+    nextSteps: responsePlan.steps,
+    escalation,
+    markdown: [
+      '# Local action pack',
+      '',
+      'Generated locally in the browser. Nothing was sent to a server.',
+      '',
+      `Context: ${profile.label} - ${issueLabel}`,
+      `Issue: ${issueDisplay}`,
+      `Target follow-up date: ${responsePlan.targetDateDisplay}`,
+      '',
+      '## Evidence to keep',
+      ...evidence.map((item) => `- [ ] ${item}`),
+      '',
+      '## Safety checks',
+      ...safety.map((item) => `- [ ] ${item}`),
+      '',
+      '## Next steps',
+      ...responsePlan.steps.map((item) => `- [ ] ${item}`),
+      '',
+      '## Escalation notes',
+      ...escalation.map((item) => `- [ ] ${item}`)
+    ].join('\n')
   };
 }
 

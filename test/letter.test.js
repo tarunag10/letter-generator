@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   buildActionChecklist,
   buildExportMetadata,
+  buildLocalActionPack,
   buildLetterHandoffPack,
   buildMailtoLink,
   buildResponsePlan,
@@ -153,6 +154,26 @@ test('builds a copyable handoff pack with letter, plan, and checklist', () => {
   assert.match(pack.markdown, /Target follow-up date: 15 June 2026/);
   assert.match(pack.markdown, /Remove full card numbers/);
   assert.match(pack.markdown, /Current source notes/);
+  assert.match(pack.markdown, /Nothing was sent to a server/);
+});
+
+test('builds a local action pack with practical evidence and safety steps', () => {
+  const pack = buildLocalActionPack({
+    organisationType: 'bank',
+    issueType: 'banking',
+    issue: 'accessible statement format',
+    sentDate: '2026-06-01'
+  });
+
+  assert.equal(pack.title, 'Local action pack');
+  assert.equal(pack.contextLabel, 'Bank or financial service - Banking');
+  assert.equal(pack.targetDateDisplay, '15 June 2026');
+  assert.ok(pack.evidence.some((item) => /complaint references/i.test(item)));
+  assert.ok(pack.safety.some((item) => /PINs/i.test(item)));
+  assert.ok(pack.nextSteps.some((item) => /written follow-up/i.test(item)));
+  assert.ok(pack.escalation.some((item) => /Financial Ombudsman/i.test(item)));
+  assert.match(pack.markdown, /^# Local action pack/m);
+  assert.match(pack.markdown, /Accessible statement format/);
   assert.match(pack.markdown, /Nothing was sent to a server/);
 });
 

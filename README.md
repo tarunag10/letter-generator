@@ -12,6 +12,7 @@ Open `index.html` in a browser. This repository is intentionally no-backend and 
 - Issue prompts for exams, communication, travel, employment, premises, banking, and healthcare.
 - A stronger generated letter that asks for written reasons, alternatives, responsible contacts, staff briefing, deadlines, and complaint or appeal routes.
 - A browser-side action checklist that changes with the selected organisation and issue, including privacy reminders for sensitive banking or healthcare details.
+- Copyable local action packs that turn the selected issue into evidence to keep, safety checks, follow-up timing, and escalation notes.
 - Local copy, `.txt` download, and browser print actions. Filename metadata is generated in the browser from the letter context; no backend or storage is used.
 - Browser-local draft autosave, a clear/reset draft control, and an email-draft `mailto:` link. Draft data stays in `localStorage` on the user's device and can be cleared from the UI.
 
