@@ -4,19 +4,22 @@ import {
   buildLocalActionPack,
   buildLetterHandoffPack,
   buildMailtoLink,
+  buildRequestTypePlan,
   buildResponsePlan,
   currentGuidance,
-  generateReasonableAdjustmentLetter,
+  generateRequestLetter,
   getOrganisationProfile,
   issueGuidance,
   organisationTypes,
   parseDraftState,
+  requestTypes,
   serializeDraftState
 } from './letter.js';
 
 const form = document.querySelector('form');
 const preview = document.querySelector('#preview');
 const status = document.querySelector('#status');
+const requestTypeSelect = document.querySelector('#requestType');
 const organisationSelect = document.querySelector('#organisationType');
 const issueSelect = document.querySelector('#issueType');
 const guidance = document.querySelector('#selected-guidance');
@@ -46,16 +49,23 @@ function values() {
 }
 
 function updateGuidance(data) {
+  const requestPlan = buildRequestTypePlan(data);
   const profile = getOrganisationProfile(data.organisationType);
   const responsePlan = buildResponsePlan(data);
   guidance.innerHTML = '';
 
   const heading = document.createElement('h2');
-  heading.textContent = `${profile.label} guidance`;
+  heading.textContent = `${requestPlan.label} guidance`;
   const legal = document.createElement('p');
-  legal.textContent = profile.legalContext;
+  legal.textContent =
+    data.requestType === 'reasonable-adjustment'
+      ? profile.legalContext
+      : `Response window: ${requestPlan.responseWindow}. Source record: ${requestPlan.sourceId}.`;
   const examples = document.createElement('p');
-  examples.textContent = `Useful detail to include: ${profile.examples.join(', ')}.`;
+  examples.textContent =
+    data.requestType === 'reasonable-adjustment'
+      ? `Useful detail to include: ${profile.examples.join(', ')}.`
+      : 'Keep the request focused, factual, and easy to identify. Avoid unnecessary sensitive detail.';
   const issue = document.createElement('p');
   issue.textContent = issueGuidance[data.issueType] || 'Choose an issue type to see drafting prompts.';
   const checklistHeading = document.createElement('h3');
@@ -85,10 +95,11 @@ function updateGuidance(data) {
 
 function update() {
   const data = values();
-  preview.textContent = generateReasonableAdjustmentLetter(data);
+  const requestType = requestTypes[data.requestType] ? data.requestType : 'reasonable-adjustment';
+  preview.textContent = generateRequestLetter(data);
   emailLink.href = buildMailtoLink({
     to: data.email,
-    subject: `Reasonable adjustment request: ${data.issue || 'request'}`,
+    subject: `${requestTypes[requestType].label}: ${data.issue || 'request'}`,
     body: preview.textContent
   });
   updateGuidance(data);
@@ -181,7 +192,9 @@ function printLetter() {
 }
 
 populateSelect(organisationSelect, Object.entries(organisationTypes), (profile) => profile.label);
+populateSelect(requestTypeSelect, Object.entries(requestTypes), (requestType) => requestType.label);
 populateSelect(issueSelect, Object.entries(issueGuidance), (_, value) => value[0].toUpperCase() + value.slice(1));
+requestTypeSelect.value = 'reasonable-adjustment';
 organisationSelect.value = 'university';
 issueSelect.value = 'exams';
 restoreDraft();

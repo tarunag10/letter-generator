@@ -59,6 +59,29 @@ export const issueGuidance = {
   healthcare: 'Include appointment dates, clinic names, communication needs, and whether the adjustment should be added permanently to your record.'
 };
 
+export const requestTypes = {
+  'reasonable-adjustment': {
+    label: 'Reasonable adjustment request',
+    sourceId: 'govuk-equality-act-guidance',
+    responseWindow: '10 working days for an initial response'
+  },
+  foi: {
+    label: 'Freedom of Information request',
+    sourceId: 'govuk-foi-request',
+    responseWindow: '20 working days'
+  },
+  sar: {
+    label: 'Subject access request',
+    sourceId: 'ico-subject-access-request',
+    responseWindow: 'one month'
+  },
+  'complaint-follow-up': {
+    label: 'Complaint or request follow-up',
+    sourceId: 'internal-follow-up',
+    responseWindow: 'as soon as reasonably possible'
+  }
+};
+
 export const currentGuidance = [
   {
     title: 'Equality Act reasonable adjustments',
@@ -77,6 +100,12 @@ export const currentGuidance = [
     detail: 'The ICO says subject access requests can be verbal or written and should be answered without undue delay and within one month unless a lawful extension applies.',
     source: 'ICO subject access guidance',
     url: 'https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/subject-access-requests/a-guide-to-subject-access/'
+  },
+  {
+    title: 'Freedom of Information timing',
+    detail: 'GOV.UK explains that public authorities usually have 20 working days to respond to a Freedom of Information request.',
+    source: 'GOV.UK FOI request guidance',
+    url: 'https://www.gov.uk/make-a-freedom-of-information-request/how-to-make-an-foi-request'
   }
 ];
 
@@ -200,6 +229,7 @@ const localEscalationItems = {
 };
 
 const draftFields = [
+  'requestType',
   'recipient',
   'organisationType',
   'issueType',
@@ -310,6 +340,49 @@ export function addWorkingDays(value, workingDays = 10) {
 }
 
 export function buildResponsePlan(input = {}) {
+  const requestType = clean(input.requestType, 'reasonable-adjustment');
+  if (requestType === 'foi') {
+    const target = addWorkingDays(input.sentDate, 20);
+    return {
+      windowLabel: '20 working days',
+      sentDate: parseLocalDate(input.sentDate) ? toLocalDateString(parseLocalDate(input.sentDate)) : '',
+      sentDateDisplay: parseLocalDate(input.sentDate)
+        ? formatDateForDisplay(input.sentDate)
+        : 'Set a sent date to calculate a target date',
+      targetDate: target ? toLocalDateString(target) : '',
+      targetDateDisplay: target ? formatDateForDisplay(target) : 'Set a sent date to calculate a target date',
+      steps: [
+        'Send the FOI request to a public authority in writing.',
+        'Keep the request focused on recorded information rather than explanations or opinions.',
+        'If there is no response by the target date, send a polite follow-up quoting the original request.',
+        'If the response is refused or delayed, check the internal review and ICO complaint routes.'
+      ],
+      safetyNote:
+        'This is an informational planning aid, not legal advice. FOI rules and exemptions can be technical; check the official route before escalating.'
+    };
+  }
+
+  if (requestType === 'sar') {
+    const sentDate = parseLocalDate(input.sentDate);
+    const target = sentDate ? new Date(sentDate.getTime()) : null;
+    if (target) target.setUTCMonth(target.getUTCMonth() + 1);
+    return {
+      windowLabel: 'one month',
+      sentDate: sentDate ? toLocalDateString(sentDate) : '',
+      sentDateDisplay: sentDate ? formatDateForDisplay(sentDate) : 'Set a sent date to calculate a target date',
+      targetDate: target ? toLocalDateString(target) : '',
+      targetDateDisplay: target ? formatDateForDisplay(target) : 'Set a sent date to calculate a target date',
+      steps: [
+        'Send the SAR to the organisation that controls the personal data.',
+        'Describe the personal data or time period clearly enough to help the organisation find it.',
+        'Keep any identity-check request and response deadline with your records.',
+        'If there is no response by the target date, follow up and check the ICO complaint route.'
+      ],
+      safetyNote:
+        'This is an informational planning aid, not legal advice. Avoid sending more identity documents than necessary.'
+    };
+  }
+
   const organisationType = organisationTypes[input.organisationType] ? input.organisationType : 'university';
   const issueType = clean(input.issueType, '').toLowerCase();
   const rule = responsePlanRules[organisationType] || responsePlanRules.university;
@@ -331,6 +404,20 @@ export function buildResponsePlan(input = {}) {
     targetDateDisplay: target ? formatDateForDisplay(target) : 'Set a sent date to calculate a target date',
     steps,
     safetyNote: 'This response plan is an informational planning aid, not legal advice. Check any formal deadline, appeal route, complaint policy, ticket term, exam rule, or urgent time limit before relying on it.'
+  };
+}
+
+export function buildRequestTypePlan(input = {}) {
+  const requestType = requestTypes[input.requestType] ? input.requestType : 'reasonable-adjustment';
+  const responsePlan = buildResponsePlan({ ...input, requestType });
+  return {
+    requestType,
+    label: requestTypes[requestType].label,
+    sourceId: requestTypes[requestType].sourceId,
+    responseWindow: responsePlan.windowLabel,
+    targetDateDisplay: responsePlan.targetDateDisplay,
+    steps: responsePlan.steps,
+    safetyNote: responsePlan.safetyNote
   };
 }
 
@@ -426,6 +513,16 @@ export function buildLetterHandoffPack(input = {}) {
 }
 
 export function buildExportMetadata(input = {}) {
+  const requestType = requestTypes[input.requestType] ? input.requestType : 'reasonable-adjustment';
+  if (requestType !== 'reasonable-adjustment') {
+    const subject = slug(input.issue || input.needs || requestTypes[requestType].label, requestType);
+    return {
+      filename: `${requestType}-${subject}.txt`,
+      mimeType: 'text/plain;charset=utf-8',
+      title: requestTypes[requestType].label
+    };
+  }
+
   const organisationType = organisationTypes[input.organisationType] ? input.organisationType : 'university';
   const issueType = issueGuidance[clean(input.issueType, '').toLowerCase()]
     ? clean(input.issueType, '').toLowerCase()
@@ -519,4 +616,109 @@ I would prefer correspondence by ${contact}.
 
 Yours faithfully,
 ${name}`;
+}
+
+export function generateFOIRequest(input = {}) {
+  const recipient = clean(input.recipient, 'Freedom of Information Officer');
+  const authority = clean(input.organisationName || input.organisation || input.recipient, 'your organisation');
+  const information = clean(
+    input.issue,
+    'recorded information about the public service, decision, policy, contract, or correspondence described below'
+  );
+  const scope = clean(input.needs, 'Please provide the recorded information in electronic form where possible.');
+  const name = clean(input.name, 'Your name');
+  const contact = clean(input.contact, 'Your contact details');
+
+  return `Dear ${recipient},
+
+Freedom of Information request
+
+I am making this request under the Freedom of Information Act 2000.
+
+Please provide the following recorded information held by ${authority}:
+${information}
+
+Scope and format:
+${scope}
+
+If any part of the request is unclear, please provide advice and assistance so I can refine it. If you withhold any information, please identify the exemption relied on and explain how it applies.
+
+Please respond within the statutory time limit. I would prefer correspondence by ${contact}.
+
+Yours faithfully,
+${name}`;
+}
+
+export function generateSARRequest(input = {}) {
+  const recipient = clean(input.recipient, 'Data Protection Officer');
+  const organisation = clean(input.organisationName || input.organisation || input.recipient, 'your organisation');
+  const dataRequested = clean(
+    input.issue,
+    'the personal data you hold about me, including records, correspondence, notes, account information, and decisions relating to the matter described below'
+  );
+  const context = clean(input.evidence || input.needs, 'I can provide reasonable identity information if needed.');
+  const name = clean(input.name, 'Your name');
+  const contact = clean(input.contact, 'Your contact details');
+
+  return `Dear ${recipient},
+
+Subject access request
+
+I am making a subject access request for personal data held by ${organisation}.
+
+Please provide:
+${dataRequested}
+
+Context to help locate the data:
+${context}
+
+If you need identity verification, please ask only for information that is necessary and proportionate. If you need clarification, please explain what is needed as soon as possible.
+
+Please respond without undue delay and within one month unless a lawful extension applies. I would prefer correspondence by ${contact}.
+
+Yours faithfully,
+${name}`;
+}
+
+export function generateComplaintFollowUp(input = {}) {
+  const recipient = clean(input.recipient, 'Complaints Team');
+  const originalIssue = clean(input.issue, 'my previous request or complaint');
+  const sentDate = formatDateForDisplay(input.sentDate);
+  const reference = clean(input.evidence, 'No reference number was provided.');
+  const desiredAction = clean(input.needs, 'Please provide a written update, a target response date, and the next escalation route.');
+  const name = clean(input.name, 'Your name');
+  const contact = clean(input.contact, 'Your contact details');
+
+  return `Dear ${recipient},
+
+Follow-up on previous request or complaint
+
+I am following up on ${originalIssue}. I sent or raised this on ${sentDate}.
+
+Reference or context:
+${reference}
+
+I have not yet received a clear response, or I need an update on the next step.
+
+Please now:
+1. Confirm the current status.
+2. Provide the response or decision if it is ready.
+3. Explain any delay and give a target response date.
+4. Confirm the complaint, review, appeal, or escalation route if the matter remains unresolved.
+
+Requested next action:
+${desiredAction}
+
+Please reply by ${contact}.
+
+Yours faithfully,
+${name}`;
+}
+
+export function generateRequestLetter(input = {}) {
+  const requestType = requestTypes[input.requestType] ? input.requestType : 'reasonable-adjustment';
+  if (requestType === 'foi') return generateFOIRequest(input);
+  if (requestType === 'sar') return generateSARRequest(input);
+  if (requestType === 'complaint-follow-up') return generateComplaintFollowUp(input);
+  return generateReasonableAdjustmentLetter(input);
 }

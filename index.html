@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Reasonable Adjustment Letter Generator</title>
+  <title>Public-Service Letter Generator</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -18,8 +18,8 @@
   <main>
     <section class="hero">
       <div>
-        <h1>Reasonable Adjustment Letter Generator</h1>
-        <p>Create a strong UK reasonable-adjustment request for work, university, exams, NHS care, councils, rail travel, banks, airlines, and other services. Everything runs in your browser.</p>
+        <h1>Public-Service Letter Generator</h1>
+        <p>Create UK reasonable-adjustment requests, FOI requests, subject access requests, and complaint follow-ups. Everything runs in your browser.</p>
         <div class="hero-actions">
           <a class="button" href="#tool">Create a letter</a>
           <a class="button secondary" href="https://github.com/tarunag10/letter-generator">View GitHub</a>
@@ -27,8 +27,8 @@
       </div>
       <div class="product-panel" aria-label="Letter generator product preview">
         <div class="mini-window">
-          <span>Reasonable adjustment request</span>
-          <strong>25% extra time, rest breaks, written instructions</strong>
+          <span>FOI · SAR · adjustments · follow-up</span>
+          <strong>Focused request with response plan</strong>
           <i></i><i></i><i></i>
           <b>Response plan ready</b>
         </div>
@@ -52,6 +52,9 @@
 
     <section id="tool" class="grid" aria-label="Letter generator">
       <form class="panel" aria-describedby="status">
+        <label for="requestType">Request type</label>
+        <select id="requestType" name="requestType"></select>
+
         <label for="recipient">Recipient</label>
         <input id="recipient" name="recipient" value="Admissions Team">
 

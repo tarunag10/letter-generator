@@ -6,12 +6,17 @@ import {
   buildLocalActionPack,
   buildLetterHandoffPack,
   buildMailtoLink,
+  buildRequestTypePlan,
   buildResponsePlan,
   currentGuidance,
   formatDateForDisplay,
+  generateFOIRequest,
+  generateRequestLetter,
   parseDraftState,
   serializeDraftState,
+  generateComplaintFollowUp,
   generateReasonableAdjustmentLetter,
+  generateSARRequest,
   organisationTypes
 } from '../src/letter.js';
 
@@ -79,6 +84,7 @@ test('builds an action checklist from organisation type and issue', () => {
 
 test('serializes and restores local draft state safely', () => {
   const draft = serializeDraftState({
+    requestType: 'foi',
     recipient: 'Access Team',
     organisationType: 'nhs',
     issueType: 'healthcare',
@@ -88,12 +94,82 @@ test('serializes and restores local draft state safely', () => {
 
   assert.equal(typeof draft, 'string');
   assert.deepEqual(parseDraftState(draft), {
+    requestType: 'foi',
     recipient: 'Access Team',
     organisationType: 'nhs',
     issueType: 'healthcare',
     issue: 'appointment letters'
   });
   assert.deepEqual(parseDraftState('not json'), {});
+});
+
+test('generates FOI requests with statutory timing guidance', () => {
+  const text = generateFOIRequest({
+    recipient: 'FOI Team',
+    organisationName: 'Example Council',
+    issue: 'Copies of housing repair policy documents from 2024 to 2026',
+    needs: 'Please provide the documents by email.',
+    name: 'A. Resident',
+    contact: 'email'
+  });
+
+  assert.match(text, /Freedom of Information Act 2000/);
+  assert.match(text, /Example Council/);
+  assert.match(text, /housing repair policy/);
+  assert.match(text, /statutory time limit/);
+});
+
+test('generates SAR requests with one month response wording', () => {
+  const text = generateSARRequest({
+    recipient: 'Data Protection Officer',
+    organisationName: 'Example Bank',
+    issue: 'personal data about complaint reference ABC123',
+    evidence: 'Account ending 1234 and complaint reference ABC123.',
+    name: 'T. Customer',
+    contact: 'secure message'
+  });
+
+  assert.match(text, /Subject access request/);
+  assert.match(text, /Example Bank/);
+  assert.match(text, /identity verification/);
+  assert.match(text, /within one month/);
+});
+
+test('generates complaint follow-up letters from the original sent date', () => {
+  const text = generateComplaintFollowUp({
+    recipient: 'Complaints Team',
+    issue: 'my council complaint about missed repairs',
+    sentDate: '2026-06-02',
+    evidence: 'Reference REP-123',
+    needs: 'Please provide the stage one response.',
+    name: 'A. Tenant',
+    contact: 'email'
+  });
+
+  assert.match(text, /Follow-up on previous request or complaint/);
+  assert.match(text, /2 June 2026/);
+  assert.match(text, /REP-123/);
+  assert.match(text, /stage one response/);
+});
+
+test('routes request generation and response plans by request type', () => {
+  const foi = generateRequestLetter({
+    requestType: 'foi',
+    issue: 'library service contracts'
+  });
+  const sarPlan = buildRequestTypePlan({
+    requestType: 'sar',
+    sentDate: '2026-06-02'
+  });
+  const metadata = buildExportMetadata({
+    requestType: 'complaint-follow-up',
+    issue: 'missed response'
+  });
+
+  assert.match(foi, /Freedom of Information request/);
+  assert.equal(sarPlan.responseWindow, 'one month');
+  assert.equal(sarPlan.targetDateDisplay, '2 July 2026');
+  assert.equal(metadata.filename, 'complaint-follow-up-missed-response.txt');
 });
 
 test('builds a mailto link from generated letter content', () => {
@@ -178,7 +254,7 @@ test('builds a local action pack with practical evidence and safety steps', () =
 });
 
 test('exposes current source-backed public guidance', () => {
-  assert.equal(currentGuidance.length, 3);
+  assert.equal(currentGuidance.length, 4);
   assert.ok(currentGuidance.some((item) => item.title.includes('Equality Act')));
   assert.ok(currentGuidance.some((item) => item.detail.includes('one month')));
   assert.ok(currentGuidance.every((item) => item.url.startsWith('https://')));

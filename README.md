@@ -1,6 +1,6 @@
-# Reasonable Adjustment Letter Generator
+# Public-Service Letter Generator
 
-Browser-only letter generator for UK reasonable-adjustment requests. It includes starter guidance for employers, universities, NHS services, councils, rail operators, banks, airlines, and exam providers.
+Browser-only letter generator for UK public-service requests. It includes reasonable-adjustment requests, Freedom of Information requests, subject access requests, and complaint follow-ups.
 
 ## Demo
 
@@ -8,6 +8,7 @@ Open `index.html` in a browser. This repository is intentionally no-backend and 
 
 ## Drafting coverage
 
+- Request-type framing for reasonable adjustments, FOI, SAR, and complaint follow-ups.
 - Organisation-specific framing for common UK access disputes.
 - Issue prompts for exams, communication, travel, employment, premises, banking, and healthcare.
 - A stronger generated letter that asks for written reasons, alternatives, responsible contacts, staff briefing, deadlines, and complaint or appeal routes.
