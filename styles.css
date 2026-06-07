@@ -66,6 +66,17 @@
   background: var(--paper-2);
   padding: var(--space-5);
 }
+
+.deadline-tracker,
+.tone-report {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper-2);
+  color: var(--ink-muted);
+}
+
 @media (max-width: 860px) {
   #tool.grid {
     grid-template-columns: 1fr;

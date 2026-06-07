@@ -1,4 +1,12 @@
 import { initTheme } from './theme.js';
+import { createIcsEvent } from '../../shared/calendar/ics.mjs';
+import { analyseReadability } from '../../shared/readability/index.mjs';
+import {
+  createEvidencePack,
+  serializeEvidence,
+  EVIDENCE_HANDOFF_KEY
+} from '../../shared/evidence/index.mjs';
+import { addWorkingDays } from '../../shared/deadlines/index.mjs';
 import {
   buildActionChecklist,
   buildExportMetadata,
@@ -219,6 +227,76 @@ renderCurrentGuidance();
 update();
 
 initTheme('#theme-toggle');
+
+const addToCalendarBtn = document.querySelector('#addToCalendar');
+const checkToneBtn = document.querySelector('#checkTone');
+const sendEvidenceBtn = document.querySelector('#sendEvidence');
+const deadlineTracker = document.querySelector('#deadline-tracker');
+const toneReport = document.querySelector('#tone-report');
+
+function resolveDeadlineDate() {
+  const sent = document.querySelector('#sentDate')?.value;
+  if (!sent) return null;
+  return addWorkingDays(sent, 20);
+}
+
+function renderDeadline() {
+  if (!deadlineTracker) return;
+  const due = resolveDeadlineDate();
+  deadlineTracker.textContent = due
+    ? `Estimated response-by date: ${due} (about 20 working days from the sent date).`
+    : 'Add a sent date to estimate the response-by deadline.';
+}
+
+addToCalendarBtn?.addEventListener('click', () => {
+  const due = resolveDeadlineDate();
+  if (!due) {
+    status.textContent = 'Add a sent date first to create a calendar reminder.';
+    return;
+  }
+  const ics = createIcsEvent({
+    title: 'Public-service response due',
+    date: due,
+    description: 'Follow up if no response has arrived by this date.',
+    uid: `oauk-letter-${due}`
+  });
+  const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'response-deadline.ics';
+  link.click();
+  URL.revokeObjectURL(url);
+  status.textContent = 'Calendar reminder downloaded. Nothing was sent to a server.';
+});
+
+checkToneBtn?.addEventListener('click', () => {
+  const result = analyseReadability(preview.textContent || '');
+  if (!toneReport) return;
+  if (!result.wordCount) {
+    toneReport.textContent = 'Write a letter first, then check plain English.';
+    return;
+  }
+  const flagText = result.flags.length
+    ? result.flags.map((f) => f.detail).join(' ')
+    : 'No plain-English issues found.';
+  toneReport.textContent = `Estimated reading age ${result.readingAge}. ${result.flags.length} flag(s). ${flagText}`;
+});
+
+sendEvidenceBtn?.addEventListener('click', () => {
+  const raw = document.querySelector('#evidence')?.value || '';
+  const items = raw.split(/[\n,]+/).map((s) => s.trim()).filter(Boolean);
+  const pack = createEvidencePack({ source: 'letter-generator', items });
+  try {
+    window.localStorage.setItem(EVIDENCE_HANDOFF_KEY, serializeEvidence(pack));
+    status.textContent = `Saved ${pack.items.length} evidence item(s) locally for the directory.`;
+  } catch {
+    status.textContent = 'Could not save evidence locally in this browser.';
+  }
+});
+
+renderDeadline();
+form.addEventListener('input', renderDeadline);
 
 const navToggle = document.querySelector('.nav-toggle');
 const primaryNav = document.querySelector('#primary-nav');
