@@ -60,6 +60,47 @@
         <label for="requestType">Request type</label>
         <select id="requestType" name="requestType"></select>
 
+        <div id="parking-fields" style="display:none">
+          <label for="parkingOperatorType">Operator type</label>
+          <select id="parkingOperatorType" name="parkingOperatorType"></select>
+
+          <label for="pcnNumber">Penalty Charge Notice number</label>
+          <input id="pcnNumber" name="pcnNumber" placeholder="e.g. PCN123456">
+
+          <label for="noticeDate">Date of notice</label>
+          <input id="noticeDate" name="noticeDate" type="date">
+
+          <label for="dateOfViolation">Date of alleged violation</label>
+          <input id="dateOfViolation" name="dateOfViolation" type="date">
+
+          <label for="grounds">Grounds of appeal</label>
+          <textarea id="grounds" name="grounds" placeholder="e.g. No clear signage at the entrance to the car park"></textarea>
+
+          <label for="additionalGrounds">Additional grounds</label>
+          <textarea id="additionalGrounds" name="additionalGrounds" placeholder="Optional additional grounds"></textarea>
+        </div>
+
+        <div id="protocol-fields" style="display:none">
+          <label for="protocolType">Protocol type</label>
+          <select id="protocolType" name="protocolType"></select>
+
+          <label for="defendantName">Defendant name</label>
+          <input id="defendantName" name="defendantName" placeholder="e.g. ABC Ltd">
+
+          <label for="defendantAddress">Defendant address</label>
+          <textarea id="defendantAddress" name="defendantAddress" placeholder="e.g. 1 High Street, London, W1A 1AA"></textarea>
+
+          <label for="summaryOfFacts">Summary of facts</label>
+          <textarea id="summaryOfFacts" name="summaryOfFacts" placeholder="Describe the facts giving rise to the claim"></textarea>
+
+          <label for="lossAndDamage">Loss and damage</label>
+          <textarea id="lossAndDamage" name="lossAndDamage" placeholder="Describe the loss or damage suffered"></textarea>
+
+          <label for="adrProposal">ADR proposal</label>
+          <textarea id="adrProposal" name="adrProposal" placeholder="e.g. Mediation, arbitration, or negotiation"></textarea>
+        </div>
+
+        <div id="standard-fields">
         <label for="recipient">Recipient</label>
         <input id="recipient" name="recipient" value="Admissions Team">
 
@@ -78,14 +119,15 @@
         <label for="needs">Adjustments requested</label>
         <textarea id="needs" name="needs">25% extra time, rest breaks, written instructions, and a quiet room close to accessible toilets</textarea>
 
-        <label for="evidence">Evidence or context</label>
-        <textarea id="evidence" name="evidence">I can provide existing medical or disability-support evidence if it is necessary and proportionate.</textarea>
-
         <label for="deadline">Response deadline</label>
         <input id="deadline" name="deadline" value="10 working days">
 
         <label for="sentDate">Date sent or planned</label>
         <input id="sentDate" name="sentDate" type="date" value="2026-06-01">
+        </div>
+
+        <label for="evidence">Evidence or context</label>
+        <textarea id="evidence" name="evidence">I can provide existing medical or disability-support evidence if it is necessary and proportionate.</textarea>
 
         <label for="name">Your name</label>
         <input id="name" name="name" value="A. Student">

@@ -1,3 +1,5 @@
+// ===== src/app.js =====
+// ===== src/app.js =====
 // ===== src/theme.js =====
 const __m1__Users_tarunagarwal_Documents_1_App_Developement_Tarun_Open_Access_UK_letter_generator_src_theme_js = (() => {
 // <app>/src/theme.js
@@ -1039,6 +1041,299 @@ function generateRequestLetter(input = {}) {
 return { organisationTypes, issueGuidance, requestTypes, currentGuidance, getOrganisationProfile, buildActionChecklist, parseLocalDate, toLocalDateString, formatDateForDisplay, addWorkingDays, buildResponsePlan, buildRequestTypePlan, buildLocalActionPack, buildLetterHandoffPack, buildExportMetadata, serializeDraftState, parseDraftState, buildMailtoLink, generateReasonableAdjustmentLetter, generateFOIRequest, generateSARRequest, generateComplaintFollowUp, generateRequestLetter };
 })();
 
+// ===== ../shared/parking/index.mjs =====
+const __m8__Users_tarunagarwal_Documents_1_App_Developement_Tarun_Open_Access_UK_shared_parking_index_mjs = (() => {
+const OPERATORS = [
+  { id: 'council', name: 'Local Council', type: 'council', appealDays: 28, tribunalEligible: true, source: 'govuk-parking-penalty-notice' },
+  { id: 'traffic-penalty-tribunal', name: 'Traffic Penalty Tribunal', type: 'tribunal', source: 'traffic-penalty-tribunal' },
+  { id: 'parking-ey', name: 'ParkingEye', type: 'private', appealDays: 28, tribunalEligible: false, source: 'citizens-advice-parking' },
+  { id: 'apcoa', name: 'APCOA', type: 'private', appealDays: 28, tribunalEligible: false, source: 'citizens-advice-parking' },
+  { id: 'ncp', name: 'National Car Parks', type: 'private', appealDays: 28, tribunalEligible: false, source: 'citizens-advice-parking' },
+  { id: 'q-park', name: 'Q-Park', type: 'private', appealDays: 28, tribunalEligible: false, source: 'citizens-advice-parking' },
+];
+
+const GROUNDS = [
+  'No signage',
+  'Incorrect signage',
+  'Extenuating circumstances',
+  'Procedural errors',
+  'Permit valid',
+];
+
+function getParkingOperators() { return OPERATORS; }
+
+function getAppealDeadlines(operatorId) {
+  const operator = OPERATORS.find((o) => o.id === operatorId);
+  if (!operator) throw new Error(`Unknown operator: ${operatorId}`);
+  if (operator.type === 'tribunal') return { formalAppealDays: null, tribunalDays: 28 };
+  return { formalAppealDays: operator.appealDays, tribunalDays: operator.tribunalEligible ? 28 : null };
+}
+
+function generateAppealText(data) {
+  const { operatorType, penaltyNoticeNumber, dateOfViolation, grounds, evidence } = data;
+  return `Appeal for ${operatorType} penalty notice\nPCN: ${penaltyNoticeNumber}\nDate of violation: ${dateOfViolation}\nGrounds: ${grounds}\nEvidence: ${evidence}`;
+}
+
+function getGroundsOfAppeal() { return GROUNDS; }
+
+function getTribunalRoute(operatorId) {
+  const operator = OPERATORS.find((o) => o.id === operatorId);
+  if (!operator) throw new Error(`Unknown operator: ${operatorId}`);
+  return operator.tribunalEligible === true;
+}
+
+function checkNoticeValidity(data) {
+  const { noticeDate, pcnNumber } = data;
+  const pcnPattern = /^PCN\d{6}$/;
+  if (!pcnPattern.test(pcnNumber)) return { valid: false, reason: 'Invalid PCN format' };
+  const notice = new Date(noticeDate);
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  if (notice < sixMonthsAgo) return { valid: false, reason: 'Notice date is older than 6 months' };
+  return { valid: true };
+}
+
+function serializeParking(value) { return JSON.stringify(value); }
+function parseParking(value) { return JSON.parse(value); }
+
+return { getParkingOperators, getAppealDeadlines, generateAppealText, getGroundsOfAppeal, getTribunalRoute, checkNoticeValidity, serializeParking, parseParking };
+})();
+
+// ===== src/parking.js =====
+const __m9__Users_tarunagarwal_Documents_1_App_Developement_Tarun_Open_Access_UK_letter_generator_src_parking_js = (() => {
+const parkingOperators = __m8__Users_tarunagarwal_Documents_1_App_Developement_Tarun_Open_Access_UK_shared_parking_index_mjs;
+const requestTypes = {
+  'parking-appeal': {
+    label: 'Parking appeal',
+    sourceId: 'govuk-parking-penalty-notice',
+    responseWindow: '28 days for a formal appeal'
+  }
+};
+
+const organisationTypes = {
+  council: {
+    label: 'Local Council',
+    type: 'council',
+    legalContext: 'Councils issue Penalty Charge Notices under statutory powers. You have the right to make a formal representation within 28 days, and an independent adjudicator through the Traffic Penalty Tribunal if the council rejects your appeal.',
+    tribunalEligible: true
+  },
+  private: {
+    label: 'Private parking operator',
+    type: 'private',
+    legalContext: 'Private operators issue Parking Charge Notices under contract law. You should appeal directly to the operator first. If rejected, the Parking on Private Land Appeals (POPLA) service may be available depending on the operator.',
+    tribunalEligible: false
+  }
+};
+
+const evidenceRequirements = {
+  council: [
+    'Copy of the Penalty Charge Notice with PCN number.',
+    'Photographs of signage, road markings, and the location at the time of the alleged contravention.',
+    'Any dashcam, bodycam, or witness evidence.',
+    'Correspondence received from the council or Traffic Enforcement Centre.',
+    'Proof of vehicle ownership or registered keeper details if relevant.'
+  ],
+  private: [
+    'Copy of the Parking Charge Notice with reference number.',
+    'Photographs of signage, entry conditions, and the parking area.',
+    'Any dashcam, bodycam, or witness evidence.',
+    'Correspondence received from the operator or POPLA.',
+    'Evidence of the contract terms if you entered into an agreement.'
+  ]
+};
+
+const safetyNotes = [
+  'This is an informational drafting aid, not legal advice.',
+  'Do not ignore the notice or let deadlines pass without responding.',
+  'Remove unnecessary personal details such as full home address before sending any appeal.',
+  'Keep copies of everything you send and receive.',
+  'Check whether POPLA, IAS, or another approved alternative dispute resolution body handles your operator.'
+];
+
+const escalationItems = {
+  council: [
+    'If the formal appeal is rejected, you can appeal to the Traffic Penalty Tribunal.',
+    'You usually have 28 days from the rejection notice to lodge a tribunal appeal.',
+    'Keep the rejection notice, all evidence, and the PCN reference together.'
+  ],
+  private: [
+    'If the operator rejects your appeal, check whether POPLA or an approved ADR body is available.',
+    'If no ADR body is available, you may need to defend the claim in the small claims court.',
+    'Do not ignore a court claim; respond within the stated deadline.'
+  ]
+};
+
+function clean(value, fallback) {
+  const text = typeof value === 'string' ? value.trim() : '';
+  return text || fallback;
+}
+
+function parseLocalDate(value) {
+  if (typeof value !== 'string') return null;
+  const match = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  const [, year, month, day] = match.map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null;
+  return date;
+}
+
+function toLocalDateString(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
+}
+
+function formatDateForDisplay(value) {
+  const date = value instanceof Date ? value : parseLocalDate(value);
+  if (!date) return 'No date set';
+  return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(date);
+}
+
+function addDays(date, days) {
+  const result = new Date(date.getTime());
+  result.setUTCDate(result.getUTCDate() + days);
+  return result;
+}
+
+const draftFields = ['operatorId', 'operatorType', 'pcnNumber', 'noticeDate', 'dateOfViolation', 'grounds', 'additionalGrounds', 'evidence', 'name', 'contact', 'email', 'recipient'];
+
+function getParkingRequestTypes() { return requestTypes; }
+function getParkingOrganisationTypes() { return organisationTypes; }
+function getParkingEvidenceRequirements(operatorType) { return evidenceRequirements[operatorType] || evidenceRequirements.private; }
+
+function getParkingDeadlines(operatorType, noticeDate) {
+  const parsedDate = parseLocalDate(noticeDate);
+  if (!parsedDate) return { formalAppealDays: null, tribunalDays: null, targetDateDisplay: 'Set a notice date to calculate deadlines' };
+  const appealDeadline = addDays(parsedDate, 28);
+  return {
+    formalAppealDays: 28,
+    tribunalDays: operatorType === 'council' ? 28 : null,
+    targetDate: toLocalDateString(appealDeadline),
+    targetDateDisplay: formatDateForDisplay(appealDeadline),
+    tribunalEligible: operatorType === 'council'
+  };
+}
+
+function generateParkingLetter(data = {}) {
+  const recipient = clean(data.recipient, 'Sir or Madam');
+  const pcnNumber = clean(data.pcnNumber, 'your records');
+  const noticeDate = clean(data.noticeDate, 'the date shown on the notice');
+  const dateOfViolation = clean(data.dateOfViolation, 'the date shown on the notice');
+  const grounds = clean(data.grounds, 'No signage or incorrect signage at the location');
+  const additionalGrounds = clean(data.additionalGrounds, '');
+  const evidence = clean(data.evidence, 'I can provide photographic and other evidence if required.');
+  const name = clean(data.name, 'Your name');
+  const contact = clean(data.contact, 'Your contact details');
+  const operatorType = clean(data.operatorType, 'council');
+  const profile = organisationTypes[operatorType] || organisationTypes.council;
+  const groundsSection = additionalGrounds ? `${grounds}\n\nAdditional grounds: ${additionalGrounds}` : grounds;
+
+  return `Dear ${recipient},
+
+Parking appeal: Penalty Charge Notice ${pcnNumber}
+
+I am writing to appeal the parking penalty notice referenced above. ${profile.legalContext}
+
+Date of alleged contravention: ${dateOfViolation}
+Date of notice: ${noticeDate}
+
+Grounds of appeal:
+${groundsSection}
+
+${evidence}
+
+Please confirm in writing:
+1. Whether the penalty is cancelled following this appeal.
+2. If not cancelled, the specific reasons and the next step I must take.
+3. Whether an independent review or tribunal route is available.
+4. The named contact or team handling this appeal.
+
+Please respond within 28 days. I would prefer correspondence by ${contact}.
+
+Yours faithfully,
+${name}`;
+}
+
+function createParkingHandoffPack(data = {}) {
+  const letter = generateParkingLetter(data);
+  const operatorType = clean(data.operatorType, 'council');
+  const noticeDate = clean(data.noticeDate, '');
+  const deadlines = getParkingDeadlines(operatorType, noticeDate);
+  const evidenceItems = getParkingEvidenceRequirements(operatorType);
+  const escalation = escalationItems[operatorType] || escalationItems.private;
+  const profile = organisationTypes[operatorType] || organisationTypes.council;
+
+  return {
+    title: 'Parking appeal handoff pack',
+    contextLabel: profile.label,
+    targetDateDisplay: deadlines.targetDateDisplay,
+    evidence: evidenceItems,
+    safety: safetyNotes,
+    escalation,
+    markdown: [
+      '# Parking appeal handoff pack',
+      '',
+      'Generated locally in the browser. Nothing was sent to a server.',
+      '',
+      `Operator type: ${profile.label}`,
+      `Target follow-up date: ${deadlines.targetDateDisplay}`,
+      '',
+      '## Letter',
+      '```text',
+      letter,
+      '```',
+      '',
+      '## Evidence to keep',
+      ...evidenceItems.map((item) => `- [ ] ${item}`),
+      '',
+      '## Safety checks',
+      ...safetyNotes.map((item) => `- [ ] ${item}`),
+      '',
+      '## Escalation notes',
+      ...escalation.map((item) => `- [ ] ${item}`)
+    ].join('\n')
+  };
+}
+
+function serializeParkingDraft(draft = {}) {
+  const serialized = {};
+  for (const field of draftFields) {
+    if (typeof draft[field] === 'string' && draft[field].trim()) {
+      serialized[field] = draft[field].trim();
+    }
+  }
+  return JSON.stringify(serialized);
+}
+
+function parseParkingDraft(value) {
+  try {
+    const parsed = JSON.parse(value);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    const draft = {};
+    for (const field of draftFields) {
+      if (typeof parsed[field] === 'string' && parsed[field].trim()) {
+        draft[field] = parsed[field].trim();
+      }
+    }
+    return draft;
+  } catch { return {}; }
+}
+
+return {
+  getParkingRequestTypes, generateParkingLetter, getParkingOrganisationTypes,
+  getParkingEvidenceRequirements, getParkingDeadlines, createParkingHandoffPack,
+  serializeParkingDraft, parseParkingDraft,
+  getParkingOperators: parkingOperators.getParkingOperators,
+  getAppealDeadlines: parkingOperators.getAppealDeadlines,
+  generateAppealText: parkingOperators.generateAppealText,
+  getGroundsOfAppeal: parkingOperators.getGroundsOfAppeal,
+  getTribunalRoute: parkingOperators.getTribunalRoute,
+  checkNoticeValidity: parkingOperators.checkNoticeValidity,
+  serializeParking: parkingOperators.serializeParking,
+  parseParking: parkingOperators.parseParking
+};
+})();
+
 // ===== generated dependency bindings =====
 
 const { initTheme: initTheme } = __m1__Users_tarunagarwal_Documents_1_App_Developement_Tarun_Open_Access_UK_letter_generator_src_theme_js;
@@ -1053,7 +1348,335 @@ const { countSyllables: countSyllables, analyseReadability: analyseReadability }
 
 const { EVIDENCE_HANDOFF_KEY: EVIDENCE_HANDOFF_KEY, createEvidencePack: createEvidencePack, serializeEvidence: serializeEvidence, parseEvidence: parseEvidence } = __m6__Users_tarunagarwal_Documents_1_App_Developement_Tarun_Open_Access_UK_shared_evidence_index_mjs;
 
-const { organisationTypes: organisationTypes, issueGuidance: issueGuidance, requestTypes: requestTypes, currentGuidance: currentGuidance, getOrganisationProfile: getOrganisationProfile, buildActionChecklist: buildActionChecklist, formatDateForDisplay: formatDateForDisplay, buildResponsePlan: buildResponsePlan, buildRequestTypePlan: buildRequestTypePlan, buildLocalActionPack: buildLocalActionPack, buildLetterHandoffPack: buildLetterHandoffPack, buildExportMetadata: buildExportMetadata, serializeDraftState: serializeDraftState, parseDraftState: parseDraftState, buildMailtoLink: buildMailtoLink, generateReasonableAdjustmentLetter: generateReasonableAdjustmentLetter, generateFOIRequest: generateFOIRequest, generateSARRequest: generateSARRequest, generateComplaintFollowUp: generateComplaintFollowUp, generateRequestLetter: generateRequestLetter } = __m7__Users_tarunagarwal_Documents_1_App_Developement_Tarun_Open_Access_UK_letter_generator_src_letter_js;
+const { organisationTypes: organisationTypes, issueGuidance: issueGuidance, requestTypes: letterRequestTypes, currentGuidance: currentGuidance, getOrganisationProfile: getOrganisationProfile, buildActionChecklist: buildActionChecklist, formatDateForDisplay: formatDateForDisplay, buildResponsePlan: buildResponsePlan, buildRequestTypePlan: buildRequestTypePlan, buildLocalActionPack: buildLocalActionPack, buildLetterHandoffPack: buildLetterHandoffPack, buildExportMetadata: buildExportMetadata, serializeDraftState: serializeDraftState, parseDraftState: parseDraftState, buildMailtoLink: buildMailtoLink, generateReasonableAdjustmentLetter: generateReasonableAdjustmentLetter, generateFOIRequest: generateFOIRequest, generateSARRequest: generateSARRequest, generateComplaintFollowUp: generateComplaintFollowUp, generateRequestLetter: generateRequestLetter } = __m7__Users_tarunagarwal_Documents_1_App_Developement_Tarun_Open_Access_UK_letter_generator_src_letter_js;
+
+const parkingModule = __m9__Users_tarunagarwal_Documents_1_App_Developement_Tarun_Open_Access_UK_letter_generator_src_parking_js;
+
+// ===== ../shared/protocols/index.mjs =====
+const __m11__Users_tarunagarwal_Documents_1_App_Developement_Tarun_Open_Access_UK_shared_protocols_index_mjs = (() => {
+const PROTOCOL_TYPES = [
+  { id: 'housing-disrepair', name: 'Housing Disrepair Protocol', responseDays: 90, source: 'cpr-practice-direction-pre-action', description: 'Claims for disrepair against landlords' },
+  { id: 'debt', name: 'Pre-Action Protocol for Debt Claims', responseDays: 30, source: 'cpr-practice-direction-pre-action', description: 'Claims by businesses for payment of debts' },
+  { id: 'personal-injury', name: 'Pre-Action Protocol for Personal Injury', responseDays: 120, source: 'cpr-practice-direction-pre-action', description: 'Personal injury claims (RTA, EL, PL)' },
+  { id: 'professional-negligence', name: 'Professional Negligence Protocol', responseDays: 90, source: 'cpr-practice-direction-pre-action', description: 'Claims against professionals for negligence' }
+];
+
+const COMPLIANCE_CHECKLISTS = {
+  'housing-disrepair': [
+    'Check compliance with Housing Disrepair Protocol',
+    'Ensure letter before claim complies with PD pre-action conduct',
+    'Confirm response deadline of 90 days',
+    'Verify all evidence of disrepair included',
+    'Confirm ADR proposal enclosed',
+    'Check statement of truth signed'
+  ],
+  debt: [
+    'Check compliance with Pre-Action Protocol for Debt Claims',
+    'Ensure letter before claim complies with PD pre-action conduct',
+    'Confirm response deadline of 30 days',
+    'Verify debt amount and calculation',
+    'Confirm ADR proposal enclosed',
+    'Check statement of truth signed'
+  ],
+  'personal-injury': [
+    'Check compliance with Pre-Action Protocol for Personal Injury',
+    'Ensure letter before claim complies with PD pre-action conduct',
+    'Confirm response deadline of 120 days',
+    'Verify medical evidence included',
+    'Confirm ADR proposal enclosed',
+    'Check statement of truth signed'
+  ],
+  'professional-negligence': [
+    'Check compliance with Professional Negligence Protocol',
+    'Ensure letter before claim complies with PD pre-action conduct',
+    'Confirm response deadline of 90 days',
+    'Verify duty of care and breach established',
+    'Confirm ADR proposal enclosed',
+    'Check statement of truth signed'
+  ]
+};
+
+function getProtocolTypes() { return [...PROTOCOL_TYPES]; }
+
+function getProtocolRequirements(protocolType) {
+  if (!COMPLIANCE_CHECKLISTS[protocolType]) return null;
+  return [...COMPLIANCE_CHECKLISTS[protocolType]];
+}
+
+function generateLetterOfClaim(data) {
+  if (!data) throw new Error('data is required');
+  const required = ['claimantName', 'defendantName', 'defendantAddress', 'protocolType', 'summaryOfFacts', 'lossAndDamage', 'evidenceList', 'adrProposal', 'statementOfTruth'];
+  for (const field of required) {
+    if (!data[field]) throw new Error(`${field} is required`);
+  }
+  const protocol = PROTOCOL_TYPES.find((p) => p.id === data.protocolType);
+  const protocolName = protocol ? protocol.name : data.protocolType;
+  const evidenceBlock = Array.isArray(data.evidenceList) ? data.evidenceList.map((e) => `  - ${e}`).join('\n') : '';
+  return [
+    `Letter of Claim under ${protocolName}`,
+    '',
+    `Claimant: ${data.claimantName}`,
+    `Defendant: ${data.defendantName}`,
+    `Defendant Address: ${data.defendantAddress}`,
+    '',
+    'Summary of Facts:',
+    data.summaryOfFacts,
+    '',
+    'Loss and Damage:',
+    data.lossAndDamage,
+    '',
+    'Evidence:',
+    evidenceBlock,
+    '',
+    'ADR Proposal:',
+    data.adrProposal,
+    '',
+    'Statement of Truth:',
+    data.statementOfTruth
+  ].join('\n');
+}
+
+function getResponseDeadline(protocolType) {
+  const protocol = PROTOCOL_TYPES.find((p) => p.id === protocolType);
+  return protocol ? protocol.responseDays : null;
+}
+
+function getComplianceChecklist(protocolType) {
+  if (!COMPLIANCE_CHECKLISTS[protocolType]) return null;
+  return [...COMPLIANCE_CHECKLISTS[protocolType]];
+}
+
+function generateADROffer(data) {
+  if (!data) throw new Error('data is required');
+  if (!data.proposalType) throw new Error('proposalType is required');
+  const protocol = PROTOCOL_TYPES.find((p) => p.id === data.protocolType);
+  const protocolName = protocol ? protocol.name.replace('Pre-Action Protocol for ', '').replace(' Protocol', '') : data.protocolType;
+  return [
+    `Alternative Dispute Resolution Proposal - ${protocolName}`,
+    '',
+    `We propose ${data.proposalType} as a means of resolving this dispute.`,
+    '',
+    'We invite the defendant to consider this proposal and respond within the protocol timeframe.',
+    '',
+    'Contact details:',
+    data.contactDetails || 'Not provided'
+  ].join('\n');
+}
+
+function serializeProtocols(value) { return JSON.stringify(value); }
+function parseProtocols(value) {
+  if (!value || typeof value !== 'string') return [];
+  try { const parsed = JSON.parse(value); return Array.isArray(parsed) ? parsed : []; }
+  catch { return []; }
+}
+
+return { getProtocolTypes, getProtocolRequirements, generateLetterOfClaim, getResponseDeadline, getComplianceChecklist, generateADROffer, serializeProtocols, parseProtocols };
+})();
+
+// ===== src/protocols.js =====
+const __m10__Users_tarunagarwal_Documents_1_App_Developement_Tarun_Open_Access_UK_letter_generator_src_protocols_js = (() => {
+const protocolShared = __m11__Users_tarunagarwal_Documents_1_App_Developement_Tarun_Open_Access_UK_shared_protocols_index_mjs;
+
+const requestTypes = {
+  'pre-action-protocol': {
+    label: 'Pre-Action Protocol',
+    sourceId: 'cpr-practice-direction-pre-action',
+    responseWindow: 'varies by protocol (30 to 120 days)'
+  }
+};
+
+const safetyNotes = [
+  'This is an informational drafting aid, not legal advice.',
+  'Pre-action protocol letters are formal legal documents. Check deadlines and compliance carefully.',
+  'Remove unnecessary personal details such as full home address before sending.',
+  'Keep copies of everything you send and receive.',
+  'Consider seeking legal advice for complex claims.'
+];
+
+const escalationItems = [
+  'If the defendant does not respond within the protocol deadline, you may issue court proceedings.',
+  'Check whether an ADR process is mandatory or recommended for your protocol type.',
+  'Keep all correspondence, evidence, and compliance records together for potential court use.'
+];
+
+const draftFields = [
+  'protocolType',
+  'claimantName',
+  'defendantName',
+  'defendantAddress',
+  'summaryOfFacts',
+  'lossAndDamage',
+  'evidence',
+  'adrProposal',
+  'statementOfTruth',
+  'name',
+  'contact',
+  'email'
+];
+
+function getProtocolRequestTypes() { return requestTypes; }
+
+function generateProtocolLetter(data = {}) {
+  const protocolType = clean(data.protocolType, 'debt');
+  const claimantName = clean(data.claimantName, 'Your name');
+  const defendantName = clean(data.defendantName, 'Defendant name');
+  const defendantAddress = clean(data.defendantAddress, 'Defendant address');
+  const summaryOfFacts = clean(data.summaryOfFacts, 'Summary of the facts of the claim');
+  const lossAndDamage = clean(data.lossAndDamage, 'Description of loss and damage');
+  const evidence = clean(data.evidence, 'List of evidence supporting the claim');
+  const adrProposal = clean(data.adrProposal, 'Proposal for alternative dispute resolution');
+  const statementOfTruth = clean(data.statementOfTruth, 'I believe the facts stated in this letter are true.');
+  const name = clean(data.name, 'Your name');
+  const contact = clean(data.contact, 'Your contact details');
+
+  const protocolTypes = protocolShared.getProtocolTypes();
+  const protocol = protocolTypes.find((p) => p.id === protocolType);
+  const protocolName = protocol ? protocol.name : protocolType;
+
+  const evidenceLines = evidence
+    .split('\n')
+    .map((e) => e.trim())
+    .filter(Boolean)
+    .map((e) => `  - ${e}`)
+    .join('\n');
+
+  return [
+    `Letter of Claim under ${protocolName}`,
+    '',
+    `Claimant: ${claimantName}`,
+    `Defendant: ${defendantName}`,
+    `Defendant Address: ${defendantAddress}`,
+    '',
+    'Summary of Facts:',
+    summaryOfFacts,
+    '',
+    'Loss and Damage:',
+    lossAndDamage,
+    '',
+    'Evidence:',
+    evidenceLines || '  - (list evidence here)',
+    '',
+    'ADR Proposal:',
+    adrProposal,
+    '',
+    'Statement of Truth:',
+    statementOfTruth,
+    '',
+    'Yours faithfully,',
+    name,
+    '',
+    `Contact: ${contact}`
+  ].join('\n');
+}
+
+function getProtocolTypes() { return protocolShared.getProtocolTypes(); }
+
+function getProtocolEvidenceRequirements(protocolType) {
+  const checkList = protocolShared.getComplianceChecklist(protocolType);
+  if (!checkList) {
+    return [
+      'Summary of facts supporting the claim.',
+      'Evidence list with documents, photographs, or records.',
+      'ADR proposal enclosed.',
+      'Statement of truth signed.',
+      'Compliance with the relevant pre-action protocol.'
+    ];
+  }
+  return checkList;
+}
+
+function getProtocolDeadlines(protocolType) {
+  const responseDays = protocolShared.getResponseDeadline(protocolType);
+  if (!responseDays) {
+    return { responseDays: null, targetDateDisplay: 'Select a protocol type to see deadlines' };
+  }
+  return {
+    responseDays,
+    targetDateDisplay: `${responseDays} days for the defendant to respond`
+  };
+}
+
+function createProtocolHandoffPack(data = {}) {
+  const letter = generateProtocolLetter(data);
+  const protocolType = clean(data.protocolType, 'debt');
+  const deadlines = getProtocolDeadlines(protocolType);
+  const evidence = getProtocolEvidenceRequirements(protocolType);
+  const protocolTypes = protocolShared.getProtocolTypes();
+  const protocol = protocolTypes.find((p) => p.id === protocolType);
+  const protocolName = protocol ? protocol.name : protocolType;
+
+  return {
+    title: 'Pre-Action Protocol handoff pack',
+    contextLabel: protocolName,
+    targetDateDisplay: deadlines.targetDateDisplay,
+    evidence,
+    safety: safetyNotes,
+    escalation: escalationItems,
+    markdown: [
+      '# Pre-Action Protocol handoff pack',
+      '',
+      'Generated locally in the browser. Nothing was sent to a server.',
+      '',
+      `Protocol: ${protocolName}`,
+      `Target response: ${deadlines.targetDateDisplay}`,
+      '',
+      '## Letter',
+      '```text',
+      letter,
+      '```',
+      '',
+      '## Compliance checklist',
+      ...evidence.map((item) => `- [ ] ${item}`),
+      '',
+      '## Safety checks',
+      ...safetyNotes.map((item) => `- [ ] ${item}`),
+      '',
+      '## Escalation notes',
+      ...escalationItems.map((item) => `- [ ] ${item}`)
+    ].join('\n')
+  };
+}
+
+function serializeProtocolDraft(draft = {}) {
+  const serialized = {};
+  for (const field of draftFields) {
+    if (typeof draft[field] === 'string' && draft[field].trim()) {
+      serialized[field] = draft[field].trim();
+    }
+  }
+  return JSON.stringify(serialized);
+}
+
+function parseProtocolDraft(value) {
+  try {
+    const parsed = JSON.parse(value);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    const draft = {};
+    for (const field of draftFields) {
+      if (typeof parsed[field] === 'string' && parsed[field].trim()) {
+        draft[field] = parsed[field].trim();
+      }
+    }
+    return draft;
+  } catch { return {}; }
+}
+
+return {
+  getProtocolRequestTypes, generateProtocolLetter, getProtocolTypes,
+  getProtocolEvidenceRequirements, getProtocolDeadlines, createProtocolHandoffPack,
+  serializeProtocolDraft, parseProtocolDraft,
+  generateLetterOfClaim: protocolShared.generateLetterOfClaim,
+  getResponseDeadline: protocolShared.getResponseDeadline,
+  getComplianceChecklist: protocolShared.getComplianceChecklist,
+  generateADROffer: protocolShared.generateADROffer,
+  serializeProtocols: protocolShared.serializeProtocols,
+  parseProtocols: protocolShared.parseProtocols
+};
+})();
+
+const requestTypes = { ...letterRequestTypes, ...parkingModule.getParkingRequestTypes(), ...__m10__Users_tarunagarwal_Documents_1_App_Developement_Tarun_Open_Access_UK_letter_generator_src_protocols_js.getProtocolRequestTypes() };
+const parkingDraftKey = 'open-access-uk:letter-generator:parking-draft';
+const protocolDraftKey = 'open-access-uk:letter-generator:protocol-draft';
 
 // ===== src/app.js =====
 // ===== src/app.js =====
@@ -1083,6 +1706,11 @@ const localActionButton = document.querySelector('#copyLocalActionPack');
 const handoffButton = document.querySelector('#copyHandoffPack');
 const currentGuidanceMount = document.querySelector('#current-guidance');
 const draftKey = 'open-access-uk:letter-generator:draft';
+const parkingOperatorSelect = document.querySelector('#parkingOperatorType');
+const parkingFieldsGroup = document.querySelector('#parking-fields');
+const standardFieldsGroup = document.querySelector('#standard-fields');
+const protocolFieldsGroup = document.querySelector('#protocol-fields');
+const protocolTypeSelect = document.querySelector('#protocolType');
 
 function populateSelect(select, entries, labelFor) {
   select.replaceChildren(
@@ -1100,10 +1728,70 @@ function values() {
 }
 
 function updateGuidance(data) {
+  guidance.innerHTML = '';
+
+  if (data.requestType === 'parking-appeal') {
+    const operatorType = parkingOperatorSelect?.value || 'council';
+    const deadlines = parkingModule.getParkingDeadlines(operatorType, data.noticeDate || '');
+    const evidence = parkingModule.getParkingEvidenceRequirements(operatorType);
+    const profile = parkingModule.getParkingOrganisationTypes()[operatorType] || parkingModule.getParkingOrganisationTypes().council;
+
+    const heading = document.createElement('h2');
+    heading.textContent = 'Parking appeal guidance';
+    const legal = document.createElement('p');
+    legal.textContent = profile.legalContext;
+    const deadline = document.createElement('p');
+    deadline.textContent = `Formal appeal deadline: ${deadlines.formalAppealDays || 28} days. ${deadlines.tribunalEligible ? 'Tribunal route available.' : 'No tribunal route for private operators.'}`;
+    const evidenceHeading = document.createElement('h3');
+    evidenceHeading.textContent = 'Evidence checklist';
+    const evidenceList = document.createElement('ul');
+    for (const item of evidence) {
+      const li = document.createElement('li');
+      li.textContent = item;
+      evidenceList.append(li);
+    }
+    const safetyHeading = document.createElement('h3');
+    safetyHeading.textContent = 'Safety checks';
+    const safetyList = document.createElement('ul');
+    for (const item of parkingModule.getParkingEvidenceRequirements(operatorType)) {
+      const li = document.createElement('li');
+      li.textContent = item;
+      safetyList.append(li);
+    }
+    guidance.append(heading, legal, deadline, evidenceHeading, evidenceList, safetyHeading, safetyList);
+    return;
+  }
+
+  if (data.requestType === 'pre-action-protocol') {
+    const protocolType = protocolTypeSelect?.value || 'debt';
+    const protocolModule = __m10__Users_tarunagarwal_Documents_1_App_Developement_Tarun_Open_Access_UK_letter_generator_src_protocols_js;
+    const deadlines = protocolModule.getProtocolDeadlines(protocolType);
+    const compliance = protocolModule.getProtocolEvidenceRequirements(protocolType);
+    const protocolTypes = protocolModule.getProtocolTypes();
+    const protocol = protocolTypes.find((p) => p.id === protocolType);
+    const protocolName = protocol ? protocol.name : protocolType;
+
+    const heading = document.createElement('h2');
+    heading.textContent = 'Pre-Action Protocol guidance';
+    const legal = document.createElement('p');
+    legal.textContent = `Protocol: ${protocolName}. ${protocol ? protocol.description : ''}`;
+    const deadline = document.createElement('p');
+    deadline.textContent = `Response deadline: ${deadlines.targetDateDisplay}`;
+    const complianceHeading = document.createElement('h3');
+    complianceHeading.textContent = 'Compliance checklist';
+    const complianceList = document.createElement('ul');
+    for (const item of compliance) {
+      const li = document.createElement('li');
+      li.textContent = item;
+      complianceList.append(li);
+    }
+    guidance.append(heading, legal, deadline, complianceHeading, complianceList);
+    return;
+  }
+
   const requestPlan = buildRequestTypePlan(data);
   const profile = getOrganisationProfile(data.organisationType);
   const responsePlan = buildResponsePlan(data);
-  guidance.innerHTML = '';
 
   const heading = document.createElement('h2');
   heading.textContent = `${requestPlan.label} guidance`;
@@ -1147,6 +1835,37 @@ function updateGuidance(data) {
 function update() {
   const data = values();
   const requestType = requestTypes[data.requestType] ? data.requestType : 'reasonable-adjustment';
+
+  if (requestType === 'parking-appeal') {
+    const parkingData = {
+      ...data,
+      operatorType: parkingOperatorSelect?.value || 'council'
+    };
+    preview.textContent = parkingModule.generateParkingLetter(parkingData);
+    emailLink.href = buildMailtoLink({
+      to: data.email,
+      subject: `Parking appeal: ${data.pcnNumber || 'penalty notice'}`,
+      body: preview.textContent
+    });
+    updateGuidance({ ...data, requestType: 'parking-appeal' });
+    return;
+  }
+
+  if (requestType === 'pre-action-protocol') {
+    const protocolData = {
+      ...data,
+      protocolType: protocolTypeSelect?.value || 'debt'
+    };
+    preview.textContent = __m10__Users_tarunagarwal_Documents_1_App_Developement_Tarun_Open_Access_UK_letter_generator_src_protocols_js.generateProtocolLetter(protocolData);
+    emailLink.href = buildMailtoLink({
+      to: data.email,
+      subject: `Pre-Action Protocol: ${protocolData.protocolType}`,
+      body: preview.textContent
+    });
+    updateGuidance({ ...data, requestType: 'pre-action-protocol' });
+    return;
+  }
+
   preview.textContent = generateRequestLetter(data);
   emailLink.href = buildMailtoLink({
     to: data.email,
@@ -1177,12 +1896,49 @@ function renderCurrentGuidance() {
 }
 
 function saveDraft() {
-  localStorage.setItem(draftKey, serializeDraftState(values()));
+  const data = values();
+  if (data.requestType === 'parking-appeal') {
+    try {
+      localStorage.setItem(parkingDraftKey, parkingModule.serializeParkingDraft(data));
+    } catch { /* private mode */ }
+    status.textContent = 'Parking draft autosaved locally in this browser.';
+    return;
+  }
+  if (data.requestType === 'pre-action-protocol') {
+    try {
+      localStorage.setItem(protocolDraftKey, __m10__Users_tarunagarwal_Documents_1_App_Developement_Tarun_Open_Access_UK_letter_generator_src_protocols_js.serializeProtocolDraft(data));
+    } catch { /* private mode */ }
+    status.textContent = 'Protocol draft autosaved locally in this browser.';
+    return;
+  }
+  localStorage.setItem(draftKey, serializeDraftState(data));
   status.textContent = 'Draft autosaved locally in this browser.';
 }
 
 function restoreDraft() {
-  const draft = parseDraftState(localStorage.getItem(draftKey));
+  const stored = localStorage.getItem(draftKey);
+  if (!stored) return;
+  const draft = parseDraftState(stored);
+  for (const [name, value] of Object.entries(draft)) {
+    const field = form.elements.namedItem(name);
+    if (field) field.value = value;
+  }
+}
+
+function restoreParkingDraft() {
+  const stored = localStorage.getItem(parkingDraftKey);
+  if (!stored) return;
+  const draft = parkingModule.parseParkingDraft(stored);
+  for (const [name, value] of Object.entries(draft)) {
+    const field = form.elements.namedItem(name);
+    if (field) field.value = value;
+  }
+}
+
+function restoreProtocolDraft() {
+  const stored = localStorage.getItem(protocolDraftKey);
+  if (!stored) return;
+  const draft = __m10__Users_tarunagarwal_Documents_1_App_Developement_Tarun_Open_Access_UK_letter_generator_src_protocols_js.parseProtocolDraft(stored);
   for (const [name, value] of Object.entries(draft)) {
     const field = form.elements.namedItem(name);
     if (field) field.value = value;
@@ -1191,9 +1947,13 @@ function restoreDraft() {
 
 function resetDraft() {
   localStorage.removeItem(draftKey);
+  localStorage.removeItem(parkingDraftKey);
+  localStorage.removeItem(protocolDraftKey);
   form.reset();
   organisationSelect.value = 'university';
   issueSelect.value = 'exams';
+  requestTypeSelect.value = 'reasonable-adjustment';
+  handleRequestTypeChange();
   update();
   status.textContent = 'Saved draft cleared from this browser.';
 }
@@ -1245,10 +2005,46 @@ function printLetter() {
 populateSelect(organisationSelect, Object.entries(organisationTypes), (profile) => profile.label);
 populateSelect(requestTypeSelect, Object.entries(requestTypes), (requestType) => requestType.label);
 populateSelect(issueSelect, Object.entries(issueGuidance), (_, value) => value[0].toUpperCase() + value.slice(1));
+
+function handleRequestTypeChange() {
+  const isParking = requestTypeSelect.value === 'parking-appeal';
+  const isProtocol = requestTypeSelect.value === 'pre-action-protocol';
+  if (parkingFieldsGroup) parkingFieldsGroup.style.display = isParking ? '' : 'none';
+  if (protocolFieldsGroup) protocolFieldsGroup.style.display = isProtocol ? '' : 'none';
+  if (standardFieldsGroup) standardFieldsGroup.style.display = (isParking || isProtocol) ? 'none' : '';
+  if (parkingOperatorSelect && isParking) {
+    if (!parkingOperatorSelect.options.length) {
+      const operators = parkingModule.getParkingOperators();
+      for (const op of operators) {
+        const opt = document.createElement('option');
+        opt.value = op.id;
+        opt.textContent = op.name;
+        parkingOperatorSelect.append(opt);
+      }
+    }
+  }
+  if (protocolTypeSelect && isProtocol) {
+    if (!protocolTypeSelect.options.length) {
+      const protocolTypes = __m10__Users_tarunagarwal_Documents_1_App_Developement_Tarun_Open_Access_UK_letter_generator_src_protocols_js.getProtocolTypes();
+      for (const pt of protocolTypes) {
+        const opt = document.createElement('option');
+        opt.value = pt.id;
+        opt.textContent = pt.name;
+        protocolTypeSelect.append(opt);
+      }
+    }
+  }
+  update();
+}
+
+requestTypeSelect.addEventListener('change', handleRequestTypeChange);
 requestTypeSelect.value = 'reasonable-adjustment';
 organisationSelect.value = 'university';
 issueSelect.value = 'exams';
 restoreDraft();
+restoreParkingDraft();
+restoreProtocolDraft();
+handleRequestTypeChange();
 
 form.addEventListener('input', () => {
   update();
@@ -1347,3 +2143,5 @@ navToggle?.addEventListener('click', () => {
   navToggle.setAttribute('aria-expanded', String(open));
   primaryNav?.classList.toggle('is-open', open);
 });
+
+
